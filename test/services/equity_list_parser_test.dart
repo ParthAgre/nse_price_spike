@@ -29,11 +29,21 @@ void main() {
     expect(micron.type, InstrumentType.stock);
   });
 
-  test('keeps INE rows, ignores other ISIN prefixes', () {
+  test('a rights entitlement (INE, type code 20) is ignored', () {
+    final list = parseEquityList(text);
+    expect(text, contains('INE0LXG20016')); // OLAELEC-RE
+    expect(list.entries.any((e) => e.isin == 'INE0LXG20016'), isFalse);
+  });
+
+  test('keeps INE…01 rows, ignores other ISIN prefixes and codes', () {
     final list = parseEquityList(text);
     expect(list.rowsParsed, 2608);
     expect(list.entries.every((e) => e.isin.startsWith('INE')), isTrue);
-    expect(list.entries.length, 2606, reason: 'two IN9 rows are ignored');
+    expect(
+      list.entries.length,
+      2605,
+      reason: "two IN9 rows and the OLAELEC-RE rights entitlement are ignored",
+    );
   });
 
   test('HTML instead of CSV is a parse failure', () {

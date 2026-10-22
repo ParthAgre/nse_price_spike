@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nse_price_spike/models/app_settings.dart';
 import 'package:nse_price_spike/models/daily_file.dart';
 import 'package:nse_price_spike/services/refresh_service.dart';
+import 'package:nse_price_spike/utils/symbol_search.dart';
 
 import 'database_providers.dart';
 import 'repository_providers.dart';
@@ -48,20 +49,24 @@ class RefreshController extends StateNotifier<RefreshState> {
     if (mounted) state = next;
   }
 
-  /// App open/resume, the Refresh button and pull-to-refresh use
-  /// `force: false`; "Download now" uses `force: true`. Concurrent calls
+  /// App open/resume pass `automatic: true` (throttled re-checks while
+  /// today's file is unpublished); the Refresh button and pull-to-refresh
+  /// use the defaults; "Download now" uses `force: true`. Concurrent calls
   /// share one run.
-  Future<RefreshOutcome> refresh({bool force = false}) {
-    return _running ??= _run(force).whenComplete(() => _running = null);
+  Future<RefreshOutcome> refresh({bool force = false, bool automatic = false}) {
+    return _running ??= _run(
+      force,
+      automatic,
+    ).whenComplete(() => _running = null);
   }
 
-  Future<RefreshOutcome> _run(bool force) async {
+  Future<RefreshOutcome> _run(bool force, bool automatic) async {
     _setState(state.copyWith(busy: true));
     RefreshOutcome outcome;
     try {
       final service = await _service();
       await service.refreshEquityList();
-      outcome = await service.refreshPrices(force: force);
+      outcome = await service.refreshPrices(force: force, automatic: automatic);
     } on Object catch (e) {
       outcome = RefreshFailed(e, null);
     }
@@ -117,4 +122,22 @@ final refreshControllerProvider =
 final latestFileProvider = FutureProvider<DailyFile?>((ref) async {
   final controller = ref.read(refreshControllerProvider.notifier);
   return (await controller._service()).readCachedFile();
+});
+
+/// Local search over symbol_master, ranked by traded value from the latest
+/// cached bhavcopy. Rebuilds when the list changes or a new file arrives.
+final symbolSearchIndexProvider = StreamProvider<SymbolSearchIndex>((
+  ref,
+) async* {
+  final file = await ref.watch(latestFileProvider.future);
+  final tradedValue = <String, int>{
+    for (final row in file?.rows ?? const <BhavRow>[])
+      if (row.tradedValuePaise != null) row.isin: row.tradedValuePaise!,
+  };
+  yield* ref
+      .read(symbolMasterRepositoryProvider)
+      .watchAll()
+      .map(
+        (entries) => SymbolSearchIndex(entries, tradedValueByIsin: tradedValue),
+      );
 });

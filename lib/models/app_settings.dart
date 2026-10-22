@@ -24,6 +24,14 @@ abstract final class SettingKeys {
   static const equityListRows = 'equity_list_rows';
   static const lastRefreshError = 'last_refresh_error';
   static const lastRefreshMessage = 'last_refresh_message';
+  static const lastKeptSeriesCounts = 'last_kept_series_counts';
+
+  /// When today's file last returned 404 (not published yet).
+  static const todayPendingCheckedAt = 'today_pending_checked_at';
+
+  /// JSON list of [PublishLogEntry]; kept by "Clear cache" (it's measurement
+  /// data, not cached prices).
+  static const publishLog = 'publish_log';
 
   /// Keys describing the downloaded file; removed by "Clear cache".
   static const fileKeys = [
@@ -33,11 +41,67 @@ abstract final class SettingKeys {
     lastFileSize,
     lastRowsParsed,
     lastSeriesCounts,
+    lastKeptSeriesCounts,
     lastHoldingsMatched,
     lastRefreshError,
     lastRefreshMessage,
+    todayPendingCheckedAt,
   ];
 }
+
+/// One successful download, recorded to measure when NSE publishes.
+class PublishLogEntry {
+  final DateTime tradeDate;
+  final DateTime fetchedAt;
+  final String source;
+
+  /// HTTP `Last-Modified` (live downloads only).
+  final DateTime? lastModified;
+
+  /// The CSV's timestamp inside the zip, read as IST.
+  final DateTime? zipEntryTime;
+
+  const PublishLogEntry({
+    required this.tradeDate,
+    required this.fetchedAt,
+    required this.source,
+    this.lastModified,
+    this.zipEntryTime,
+  });
+
+  Map<String, String?> toJson() => {
+    'tradeDate': dateKey(tradeDate),
+    'fetchedAt': fetchedAt.toUtc().toIso8601String(),
+    'source': source,
+    'lastModified': lastModified?.toUtc().toIso8601String(),
+    'zipEntryTime': zipEntryTime?.toUtc().toIso8601String(),
+  };
+
+  static PublishLogEntry? fromJson(Object? json) {
+    if (json is! Map<String, dynamic>) return null;
+    final tradeDate = parseDateKey(json['tradeDate'] as String?);
+    final fetchedAt = DateTime.tryParse(json['fetchedAt'] as String? ?? '');
+    if (tradeDate == null || fetchedAt == null) return null;
+    return PublishLogEntry(
+      tradeDate: tradeDate,
+      fetchedAt: fetchedAt,
+      source: json['source'] as String? ?? '',
+      lastModified: DateTime.tryParse(json['lastModified'] as String? ?? ''),
+      zipEntryTime: DateTime.tryParse(json['zipEntryTime'] as String? ?? ''),
+    );
+  }
+}
+
+const publishLogCapacity = 30;
+
+/// Newest first, capped at [publishLogCapacity]; returns JSON-ready maps.
+List<Map<String, String?>> appendPublishLog(
+  List<PublishLogEntry> log,
+  PublishLogEntry entry,
+) => [
+  entry.toJson(),
+  for (final e in log.take(publishLogCapacity - 1)) e.toJson(),
+];
 
 /// Typed read-only view over the raw settings map.
 class AppSettingsView {
@@ -63,10 +127,30 @@ class AppSettingsView {
       int.tryParse(raw[SettingKeys.equityListRows] ?? '');
   String? get lastRefreshError => raw[SettingKeys.lastRefreshError];
   String? get lastRefreshMessage => raw[SettingKeys.lastRefreshMessage];
+  DateTime? get todayPendingCheckedAt =>
+      DateTime.tryParse(raw[SettingKeys.todayPendingCheckedAt] ?? '');
 
-  /// Series → row count, largest first.
-  List<MapEntry<String, int>> get lastSeriesCounts {
-    final text = raw[SettingKeys.lastSeriesCounts];
+  List<PublishLogEntry> get publishLog {
+    final text = raw[SettingKeys.publishLog];
+    if (text == null) return const [];
+    try {
+      final list = jsonDecode(text);
+      if (list is! List) return const [];
+      return [for (final item in list) ?PublishLogEntry.fromJson(item)];
+    } on FormatException {
+      return const [];
+    }
+  }
+
+  List<MapEntry<String, int>> get lastKeptSeriesCounts =>
+      _countsFrom(raw[SettingKeys.lastKeptSeriesCounts]);
+
+  /// Series → row count (all rows), largest first.
+  List<MapEntry<String, int>> get lastSeriesCounts =>
+      _countsFrom(raw[SettingKeys.lastSeriesCounts]);
+
+  /// A JSON `{series: count}` map as entries, largest first.
+  static List<MapEntry<String, int>> _countsFrom(String? text) {
     if (text == null) return const [];
     try {
       final decoded = (jsonDecode(text) as Map<String, dynamic>).map(

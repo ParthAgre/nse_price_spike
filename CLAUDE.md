@@ -56,20 +56,30 @@ cd android && JAVA_HOME="/e/Softwares/Android Studio/jbr" ./gradlew --stop   # f
 ## Rules (from the spec; don't regress)
 
 - **ISIN is identity.** Match instruments across files by ISIN; the symbol is display-only.
-- **Instrument type:** INE → stock, INF → ETF, anything else is ignored.
+- **Instrument type:** `INE` with type code `01` (ISIN characters 8–9) → stock; `INF` → ETF; anything else is ignored. This covers debentures, REIT/InvIT units, rights entitlements, gold bonds, G-secs and IN9 DVRs. The rule is `instrumentTypeFromIsin`.
 - **Price** = `ClsPric`, **never** `LastPric`. Previous close = `PrvsClsgPric`.
-- **Series:** keep EQ and BE only, but count every series (Debug screen).
+- **Series:** keep rows **by ISIN, not by series**.
+  - Every series counts except **BL** (block deals), which repeats EQ ISINs at other closes.
+  - Duplicate ISINs resolve EQ > BE > BZ > SM > ST > others (`seriesPriority`).
+  - Count every series, kept and total, on the Debug screen.
+  - The data check behind this rule (21 Oct 2026 fixture) is in `STATUS.md`.
 - **Locate CSV columns by header name** with a real CSV parser. Trim headers; EQUITY_L has leading spaces.
 - **One URL constant:** `bhavcopyUrlPattern` in `lib/constants/nse_urls.dart`. Send the browser User-Agent.
 - **Money and quantity:** integer paise, and quantity × 10,000. Convert decimal strings to paise by string parsing (`parseDecimalToPaise`), never through `double`. Round only for display.
 - **Avg cost excludes fees; invested includes them.**
 - **Refresh:**
-  - Expected day = today if it is a weekday and ≥ 19:00 IST, else the previous weekday.
-  - On a 404, walk back over weekdays, at most 5 tries.
-  - At most one successful download per IST day, unless forced ("Download now").
+  - Expected day = today if it is a weekday and ≥ **17:00 IST**, else the previous weekday.
+  - **A 404 for today's file means "not published yet":**
+    - Keep the previous prices.
+    - It does **not** count as the day's download (`lastSuccessIstDate` is unchanged, even if an earlier day was fetched in the same run).
+    - Retry on the next open/resume (`automatic: true`), at most once per 30 minutes (`todayPendingCheckedAt`). A manual refresh and "Download now" are not throttled.
+  - For earlier dates, on a 404 walk back over weekdays: at most 5 tries in total, stopping at the stored day.
+  - At most one counted download per IST day, unless forced ("Download now").
   - On any other error, keep the cache and show "Couldn't reach NSE — prices as of {date}".
-  - Store quotes only for held ISINs. Refresh ETF rows in `symbol_master` from each file.
-  - EQUITY_L: download on first run, then at most weekly.
+  - Store quotes only for held ISINs.
+  - From each file, replace the `origin = 'bhavcopy'` rows of `symbol_master`: every kept row that EQUITY_L lacks.
+  - Record `Last-Modified` and the zip entry time in the publish log (Debug → Publish times).
+  - EQUITY_L: download on first run, then at most weekly. It replaces only the `origin = 'equity_l'` rows.
 - **Manual price** is dated today (IST). A file price overrides it only when the file's trade date is strictly newer.
 - **Tests make no real network calls.** Use `MockClient` (`package:http/testing.dart`) or `ScriptedPriceProvider` (`test/helpers/fixtures.dart`).
 - **Fixtures** live in `test/fixtures/`. The zip and EQUITY_L are also app assets for Fixture mode.
@@ -78,4 +88,10 @@ cd android && JAVA_HOME="/e/Softwares/Android Studio/jbr" ./gradlew --stop   # f
 
 - **Widget tests:** read fixture bytes in `setUpAll` (`memoryFixtureLoader()`), because real file I/O doesn't complete inside `testWidgets`' fake async. Unmount with `pumpWidget(SizedBox())` at the end of each test.
 - **`runParse`** sends a top-level function plus its argument to `Isolate.run`. Never pass a closure that captures `this`, or it would try to copy the http client.
-- **Search ranking:** exact ISIN, then symbol prefix, then symbol contains, then name. Within a rank: shorter, then A–Z. So "reli" lists RELIABLE before RELIANCE; there is no popularity data.
+- **Search ranking:**
+  - Groups: exact symbol (or exact ISIN), then symbol prefix, then name contains. A match inside a symbol alone is not a match.
+  - Within a group: traded value (`TtlTrfVal`) from the latest cached bhavcopy, descending; instruments without one go last, then A–Z.
+  - `symbolSearchIndexProvider` (in `refresh_providers.dart`) rebuilds when `latestFileProvider` is invalidated.
+- **Schema is v2.** It added `symbol_master.origin`. Write a migration step in `AppDatabase.migration` for every schema change, and test it the way `test/repositories/migration_test.dart` does.
+- **Zip entry times have no time zone.** They are read as IST.
+- **Shell heredocs:** heredocs that contain apostrophes can fail in the Bash tool. Write the file with the Write tool instead.

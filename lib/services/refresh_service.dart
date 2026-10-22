@@ -48,11 +48,34 @@ class Downloaded extends RefreshOutcome {
   final DailyFile file;
   final int attempts;
   final int holdingsMatched;
-  const Downloaded(this.file, this.attempts, this.holdingsMatched);
+
+  /// Today's file 404'd and an earlier day was fetched instead.
+  final bool todayPending;
+
+  const Downloaded(
+    this.file,
+    this.attempts,
+    this.holdingsMatched, {
+    this.todayPending = false,
+  });
+
+  @override
+  String get message => todayPending
+      ? 'Downloaded NSE file for ${formatDisplayDate(file.tradeDate)}; '
+            "today's file isn't published yet"
+      : 'Downloaded NSE file for ${formatDisplayDate(file.tradeDate)}';
+}
+
+/// Today's file returned 404: not published yet. Previous prices are kept
+/// and the next open/resume retries (at most every 30 minutes).
+class NotPublishedYet extends RefreshOutcome {
+  final DateTime? fileDate;
+  final DateTime nextCheckAt;
+  const NotPublishedYet(this.fileDate, this.nextCheckAt);
 
   @override
   String get message =>
-      'Downloaded NSE file for ${formatDisplayDate(file.tradeDate)}';
+      "Today's NSE file isn't published yet — ${pricesAsOf(fileDate)}";
 }
 
 /// Every day tried returned 404 (holidays / not published yet), or the
@@ -106,6 +129,9 @@ class EquityListFailed extends EquityListOutcome {
 /// Never throws: every failure becomes an outcome.
 class RefreshService {
   static const maxAttempts = 5;
+
+  /// Minimum gap between automatic re-checks for an unpublished today file.
+  static const pendingRetry = Duration(minutes: 30);
   static const equityListMaxAge = Duration(days: 7);
 
   final PriceProvider provider;
@@ -147,7 +173,7 @@ class RefreshService {
       if (stocks.isEmpty) {
         throw const PriceParseFailure('EQUITY_L.csv had no INE rows');
       }
-      await symbols.replaceStocks(stocks);
+      await symbols.replaceFromEquityList(stocks);
       await settings.setAll({
         SettingKeys.equityListFetchedAt: now.toUtc().toIso8601String(),
         SettingKeys.equityListRows: '${list.rowsParsed}',
@@ -159,26 +185,47 @@ class RefreshService {
   }
 
   /// Fetches the latest bhavcopy if the stored one is older than the
-  /// expected latest trading day. [force] ("Download now") skips the
-  /// up-to-date and once-per-IST-day checks.
-  Future<RefreshOutcome> refreshPrices({bool force = false}) async {
+  /// expected latest trading day.
+  ///
+  /// - [force] ("Download now") skips the up-to-date, once-per-IST-day and
+  ///   not-published-yet checks.
+  /// - [automatic] (app open/resume) is throttled: after today's file was
+  ///   found not published, it re-checks at most once per [pendingRetry].
+  ///
+  /// A 404 for *today's* file means "not published yet": earlier days are
+  /// still walked back to as usual, but the run does not count as the day's
+  /// download, so today's file is retried later.
+  Future<RefreshOutcome> refreshPrices({
+    bool force = false,
+    bool automatic = false,
+  }) async {
     DateTime? stored;
     try {
       final now = clock();
       final view = await settings.read();
       stored = view.lastFileTradeDate;
+      final today = istDate(now);
       final target = expectedLatestTradingDay(now);
 
       if (!force) {
         if (stored != null && !stored.isBefore(target)) return UpToDate(stored);
-        if (view.lastSuccessIstDate == istDate(now)) {
+        if (view.lastSuccessIstDate == today) {
           return AlreadyDownloadedToday(stored);
+        }
+        final checkedAt = view.todayPendingCheckedAt;
+        if (automatic &&
+            target == today &&
+            checkedAt != null &&
+            istDate(checkedAt) == today &&
+            now.difference(checkedAt) < pendingRetry) {
+          return NotPublishedYet(stored, checkedAt.add(pendingRetry));
         }
       }
 
       var day = target;
       DailyFile? file;
       var attempts = 0;
+      var todayPending = false;
       while (attempts < maxAttempts) {
         // Walking back onto a day we already have cannot give anything new.
         if (!force && stored != null && !day.isAfter(stored)) break;
@@ -187,30 +234,53 @@ class RefreshService {
           file = await provider.fetchForDate(day);
           break;
         } on PriceNotFound {
+          if (day == today) todayPending = true;
           day = previousWeekday(day);
         }
       }
+
+      final pendingKey = {
+        SettingKeys.todayPendingCheckedAt: todayPending
+            ? now.toUtc().toIso8601String()
+            : null,
+      };
       if (file == null) {
+        final RefreshOutcome outcome = todayPending
+            ? NotPublishedYet(stored, now.add(pendingRetry))
+            : NoNewFile(attempts, stored);
         await settings.setAll({
+          ...pendingKey,
           SettingKeys.lastRefreshError: null,
-          SettingKeys.lastRefreshMessage: NoNewFile(attempts, stored).message,
+          SettingKeys.lastRefreshMessage: outcome.message,
         });
-        return NoNewFile(attempts, stored);
+        return outcome;
       }
 
       final matched = await _store(file, now);
-      final outcome = Downloaded(file, attempts, matched);
+      final outcome = Downloaded(
+        file,
+        attempts,
+        matched,
+        todayPending: todayPending,
+      );
       final newest = stored != null && stored.isAfter(file.tradeDate)
           ? stored
           : file.tradeDate;
       await settings.setAll({
+        ...pendingKey,
         SettingKeys.lastFileTradeDate: dateKey(newest),
-        SettingKeys.lastSuccessIstDate: dateKey(istDate(now)),
+        // An earlier day's file fetched while today's is unpublished is not
+        // the day's download; today's file is retried later.
+        if (!todayPending) SettingKeys.lastSuccessIstDate: dateKey(today),
         SettingKeys.lastFileFetchedAt: now.toUtc().toIso8601String(),
         SettingKeys.lastFileSize: '${file.sizeBytes}',
         SettingKeys.lastRowsParsed: '${file.rowsParsed}',
         SettingKeys.lastSeriesCounts: jsonEncode(file.seriesCounts),
+        SettingKeys.lastKeptSeriesCounts: jsonEncode(file.keptSeriesCounts),
         SettingKeys.lastHoldingsMatched: '$matched',
+        SettingKeys.publishLog: jsonEncode(
+          appendPublishLog(view.publishLog, _publishEntry(file, now)),
+        ),
         SettingKeys.lastRefreshError: null,
         SettingKeys.lastRefreshMessage: outcome.message,
       });
@@ -229,19 +299,27 @@ class RefreshService {
     }
   }
 
+  PublishLogEntry _publishEntry(DailyFile file, DateTime now) =>
+      PublishLogEntry(
+        tradeDate: file.tradeDate,
+        fetchedAt: now,
+        source: provider.label,
+        lastModified: file.serverLastModified,
+        zipEntryTime: file.zipEntryTime,
+      );
+
   Future<int> _store(DailyFile file, DateTime now) async {
     final held = await holdings.heldInstrumentIdsByIsin();
     final matched = await prices.upsertFileQuotes(file, held, now);
-    await symbols.replaceEtfs([
+    await symbols.replaceFromBhavcopy([
       for (final row in file.rows)
-        if (row.type == InstrumentType.etf)
-          SymbolEntry(
-            isin: row.isin,
-            symbol: row.symbol,
-            name: row.name,
-            type: row.type,
-            series: row.series,
-          ),
+        SymbolEntry(
+          isin: row.isin,
+          symbol: row.symbol,
+          name: row.name,
+          type: row.type,
+          series: row.series,
+        ),
     ]);
     final raw = file.rawZip;
     if (raw != null) await cache.write(raw);

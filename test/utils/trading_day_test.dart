@@ -6,21 +6,21 @@ import '../helpers/fixtures.dart';
 void main() {
   group('expectedLatestTradingDay', () {
     // 2026-10-21 is a Wednesday.
-    test('weekday before 19:00 IST → previous weekday', () {
+    test('weekday before 17:00 IST → previous weekday', () {
       expect(
-        expectedLatestTradingDay(ist(2026, 10, 21, 18, 59)),
+        expectedLatestTradingDay(ist(2026, 10, 21, 16, 59)),
         d('2026-10-20'),
       );
     });
 
-    test('weekday at 19:00 IST → today', () {
+    test('weekday at 17:00 IST → today', () {
       expect(
-        expectedLatestTradingDay(ist(2026, 10, 21, 19, 0)),
+        expectedLatestTradingDay(ist(2026, 10, 21, 17, 0)),
         d('2026-10-21'),
       );
     });
 
-    test('weekday after 19:00 IST → today', () {
+    test('weekday after 17:00 IST → today', () {
       expect(
         expectedLatestTradingDay(ist(2026, 10, 21, 23, 30)),
         d('2026-10-21'),
@@ -48,8 +48,8 @@ void main() {
       expect(expectedLatestTradingDay(ist(2026, 10, 26, 9)), d('2026-10-23'));
     });
 
-    test('Monday evening → Monday', () {
-      expect(expectedLatestTradingDay(ist(2026, 10, 26, 19)), d('2026-10-26'));
+    test('Monday 17:00 → Monday', () {
+      expect(expectedLatestTradingDay(ist(2026, 10, 26, 17)), d('2026-10-26'));
     });
   });
 

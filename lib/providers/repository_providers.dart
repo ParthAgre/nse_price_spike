@@ -8,7 +8,6 @@ import 'package:nse_price_spike/repositories/price_repository.dart';
 import 'package:nse_price_spike/repositories/settings_repository.dart';
 import 'package:nse_price_spike/repositories/symbol_master_repository.dart';
 import 'package:nse_price_spike/utils/portfolio_math.dart';
-import 'package:nse_price_spike/utils/symbol_search.dart';
 
 import 'database_providers.dart';
 
@@ -71,11 +70,4 @@ final quoteHistoryProvider = StreamProvider.family<List<PriceQuote>, int>((
   instrumentId,
 ) {
   return ref.read(priceRepositoryProvider).watchQuotes(instrumentId);
-});
-
-final symbolSearchIndexProvider = StreamProvider<SymbolSearchIndex>((ref) {
-  return ref
-      .read(symbolMasterRepositoryProvider)
-      .watchAll()
-      .map(SymbolSearchIndex.new);
 });

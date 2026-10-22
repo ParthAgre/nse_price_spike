@@ -27,10 +27,20 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        // v2: symbol_master.origin. Until v2, ETFs were the only rows that
+        // came from the bhavcopy.
+        await m.addColumn(symbolMaster, symbolMaster.origin);
+        await customStatement(
+          "UPDATE symbol_master SET origin = 'bhavcopy' WHERE type = 'etf'",
+        );
+      }
+    },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nse_price_spike/providers/repository_providers.dart';
+import 'package:nse_price_spike/providers/refresh_providers.dart';
 import 'package:nse_price_spike/screens/holding_form_screen.dart';
 
 /// Fully local search: no network per keystroke.

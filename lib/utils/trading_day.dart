@@ -3,7 +3,7 @@ const istOffset = Duration(hours: 5, minutes: 30);
 
 /// NSE publishes the day's bhavcopy in the evening; from this IST hour on a
 /// weekday we expect today's file to exist.
-const bhavcopyReadyHourIst = 19;
+const bhavcopyReadyHourIst = 17;
 
 /// The IST wall-clock time for [instant], expressed as a UTC [DateTime] whose
 /// fields read as IST (so `.hour`, `.weekday` etc. are IST values).
@@ -37,7 +37,7 @@ DateTime previousWeekday(DateTime day) {
 }
 
 /// The latest trading day whose bhavcopy should already be published at
-/// [instant]: today if it is a weekday at or after 19:00 IST, otherwise the
+/// [instant]: today if it is a weekday at or after 17:00 IST, otherwise the
 /// previous weekday. Exchange holidays are handled by the caller's 404
 /// fallback, not here.
 DateTime expectedLatestTradingDay(DateTime instant) {

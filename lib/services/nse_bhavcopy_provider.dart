@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show HttpDate, HttpException;
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
@@ -36,18 +37,21 @@ class NseBhavcopyProvider implements PriceProvider {
     'Accept-Language': 'en-US,en;q=0.9',
   };
 
-  Future<Uint8List> _get(String url) async {
+  /// Returns the body and the parsed `Last-Modified` header.
+  Future<(Uint8List, DateTime?)> _get(String url) async {
     final started = clock();
     final stopwatch = Stopwatch()..start();
-    void record(String status, [int? bytes]) => log?.add(
-      NetworkEvent(
-        time: started,
-        url: url,
-        status: status,
-        duration: stopwatch.elapsed,
-        bytes: bytes,
-      ),
-    );
+    void record(String status, [int? bytes, DateTime? lastModified]) =>
+        log?.add(
+          NetworkEvent(
+            time: started,
+            url: url,
+            status: status,
+            duration: stopwatch.elapsed,
+            bytes: bytes,
+            lastModified: lastModified,
+          ),
+        );
 
     final http.Response response;
     try {
@@ -62,10 +66,11 @@ class NseBhavcopyProvider implements PriceProvider {
       throw PriceNetworkFailure(e.toString());
     }
 
-    record('${response.statusCode}', response.bodyBytes.length);
+    final lastModified = parseHttpDate(response.headers['last-modified']);
+    record('${response.statusCode}', response.bodyBytes.length, lastModified);
     switch (response.statusCode) {
       case 200:
-        return response.bodyBytes;
+        return (response.bodyBytes, lastModified);
       case 404:
         throw PriceNotFound(url);
       case 403:
@@ -77,10 +82,15 @@ class NseBhavcopyProvider implements PriceProvider {
 
   @override
   Future<DailyFile> fetchForDate(DateTime tradingDay) async {
-    final bytes = await _get(bhavcopyUrlFor(tradingDay));
+    final (bytes, lastModified) = await _get(bhavcopyUrlFor(tradingDay));
     if (!looksLikeZip(bytes)) throw PriceNotAZip(bodyPreview(bytes));
     try {
-      return await runParse(parseBhavcopyZip, bytes, useIsolate: useIsolate);
+      final file = await runParse(
+        parseBhavcopyZip,
+        bytes,
+        useIsolate: useIsolate,
+      );
+      return file.withServerLastModified(lastModified);
     } on PriceFetchException {
       rethrow;
     } on Object catch (e) {
@@ -90,7 +100,7 @@ class NseBhavcopyProvider implements PriceProvider {
 
   @override
   Future<EquityList> fetchEquityList() async {
-    final bytes = await _get(equityListUrl);
+    final (bytes, _) = await _get(equityListUrl);
     try {
       return await runParse(
         parseEquityListBytes,
@@ -102,5 +112,18 @@ class NseBhavcopyProvider implements PriceProvider {
     } on Object catch (e) {
       throw PriceParseFailure(e.toString());
     }
+  }
+}
+
+/// Parses an RFC 7231 HTTP date (`Wed, 21 Oct 2026 11:01:23 GMT`); null if
+/// absent or malformed.
+DateTime? parseHttpDate(String? value) {
+  if (value == null || value.trim().isEmpty) return null;
+  try {
+    return HttpDate.parse(value.trim());
+  } on FormatException {
+    return null;
+  } on HttpException {
+    return null;
   }
 }

@@ -26,7 +26,7 @@ class _NsePriceSpikeAppState extends ConsumerState<NsePriceSpikeApp> {
   }
 
   void _refresh() {
-    ref.read(refreshControllerProvider.notifier).refresh();
+    ref.read(refreshControllerProvider.notifier).refresh(automatic: true);
   }
 
   @override

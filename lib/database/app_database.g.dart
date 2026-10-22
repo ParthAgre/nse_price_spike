@@ -1443,8 +1443,25 @@ class $SymbolMasterTable extends SymbolMaster
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _originMeta = const VerificationMeta('origin');
   @override
-  List<GeneratedColumn> get $columns => [isin, symbol, name, type, series];
+  late final GeneratedColumn<String> origin = GeneratedColumn<String>(
+    'origin',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('equity_l'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    isin,
+    symbol,
+    name,
+    type,
+    series,
+    origin,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1495,6 +1512,12 @@ class $SymbolMasterTable extends SymbolMaster
         series.isAcceptableOrUnknown(data['series']!, _seriesMeta),
       );
     }
+    if (data.containsKey('origin')) {
+      context.handle(
+        _originMeta,
+        origin.isAcceptableOrUnknown(data['origin']!, _originMeta),
+      );
+    }
     return context;
   }
 
@@ -1524,6 +1547,10 @@ class $SymbolMasterTable extends SymbolMaster
         DriftSqlType.string,
         data['${effectivePrefix}series'],
       ),
+      origin: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin'],
+      )!,
     );
   }
 
@@ -1544,12 +1571,17 @@ class SymbolMasterData extends DataClass
 
   /// Not in the original spec; kept so a picked instrument gets its series.
   final String? series;
+
+  /// `equity_l` (EQUITY_L.csv) | `bhavcopy` (ETFs, and stocks such as SM/ST
+  /// that are not in EQUITY_L). Added in schema v2.
+  final String origin;
   const SymbolMasterData({
     required this.isin,
     required this.symbol,
     required this.name,
     required this.type,
     this.series,
+    required this.origin,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1561,6 +1593,7 @@ class SymbolMasterData extends DataClass
     if (!nullToAbsent || series != null) {
       map['series'] = Variable<String>(series);
     }
+    map['origin'] = Variable<String>(origin);
     return map;
   }
 
@@ -1573,6 +1606,7 @@ class SymbolMasterData extends DataClass
       series: series == null && nullToAbsent
           ? const Value.absent()
           : Value(series),
+      origin: Value(origin),
     );
   }
 
@@ -1587,6 +1621,7 @@ class SymbolMasterData extends DataClass
       name: serializer.fromJson<String>(json['name']),
       type: serializer.fromJson<String>(json['type']),
       series: serializer.fromJson<String?>(json['series']),
+      origin: serializer.fromJson<String>(json['origin']),
     );
   }
   @override
@@ -1598,6 +1633,7 @@ class SymbolMasterData extends DataClass
       'name': serializer.toJson<String>(name),
       'type': serializer.toJson<String>(type),
       'series': serializer.toJson<String?>(series),
+      'origin': serializer.toJson<String>(origin),
     };
   }
 
@@ -1607,12 +1643,14 @@ class SymbolMasterData extends DataClass
     String? name,
     String? type,
     Value<String?> series = const Value.absent(),
+    String? origin,
   }) => SymbolMasterData(
     isin: isin ?? this.isin,
     symbol: symbol ?? this.symbol,
     name: name ?? this.name,
     type: type ?? this.type,
     series: series.present ? series.value : this.series,
+    origin: origin ?? this.origin,
   );
   SymbolMasterData copyWithCompanion(SymbolMasterCompanion data) {
     return SymbolMasterData(
@@ -1621,6 +1659,7 @@ class SymbolMasterData extends DataClass
       name: data.name.present ? data.name.value : this.name,
       type: data.type.present ? data.type.value : this.type,
       series: data.series.present ? data.series.value : this.series,
+      origin: data.origin.present ? data.origin.value : this.origin,
     );
   }
 
@@ -1631,13 +1670,14 @@ class SymbolMasterData extends DataClass
           ..write('symbol: $symbol, ')
           ..write('name: $name, ')
           ..write('type: $type, ')
-          ..write('series: $series')
+          ..write('series: $series, ')
+          ..write('origin: $origin')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(isin, symbol, name, type, series);
+  int get hashCode => Object.hash(isin, symbol, name, type, series, origin);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1646,7 +1686,8 @@ class SymbolMasterData extends DataClass
           other.symbol == this.symbol &&
           other.name == this.name &&
           other.type == this.type &&
-          other.series == this.series);
+          other.series == this.series &&
+          other.origin == this.origin);
 }
 
 class SymbolMasterCompanion extends UpdateCompanion<SymbolMasterData> {
@@ -1655,6 +1696,7 @@ class SymbolMasterCompanion extends UpdateCompanion<SymbolMasterData> {
   final Value<String> name;
   final Value<String> type;
   final Value<String?> series;
+  final Value<String> origin;
   final Value<int> rowid;
   const SymbolMasterCompanion({
     this.isin = const Value.absent(),
@@ -1662,6 +1704,7 @@ class SymbolMasterCompanion extends UpdateCompanion<SymbolMasterData> {
     this.name = const Value.absent(),
     this.type = const Value.absent(),
     this.series = const Value.absent(),
+    this.origin = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SymbolMasterCompanion.insert({
@@ -1670,6 +1713,7 @@ class SymbolMasterCompanion extends UpdateCompanion<SymbolMasterData> {
     required String name,
     required String type,
     this.series = const Value.absent(),
+    this.origin = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : isin = Value(isin),
        symbol = Value(symbol),
@@ -1681,6 +1725,7 @@ class SymbolMasterCompanion extends UpdateCompanion<SymbolMasterData> {
     Expression<String>? name,
     Expression<String>? type,
     Expression<String>? series,
+    Expression<String>? origin,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1689,6 +1734,7 @@ class SymbolMasterCompanion extends UpdateCompanion<SymbolMasterData> {
       if (name != null) 'name': name,
       if (type != null) 'type': type,
       if (series != null) 'series': series,
+      if (origin != null) 'origin': origin,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1699,6 +1745,7 @@ class SymbolMasterCompanion extends UpdateCompanion<SymbolMasterData> {
     Value<String>? name,
     Value<String>? type,
     Value<String?>? series,
+    Value<String>? origin,
     Value<int>? rowid,
   }) {
     return SymbolMasterCompanion(
@@ -1707,6 +1754,7 @@ class SymbolMasterCompanion extends UpdateCompanion<SymbolMasterData> {
       name: name ?? this.name,
       type: type ?? this.type,
       series: series ?? this.series,
+      origin: origin ?? this.origin,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1729,6 +1777,9 @@ class SymbolMasterCompanion extends UpdateCompanion<SymbolMasterData> {
     if (series.present) {
       map['series'] = Variable<String>(series.value);
     }
+    if (origin.present) {
+      map['origin'] = Variable<String>(origin.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1743,6 +1794,7 @@ class SymbolMasterCompanion extends UpdateCompanion<SymbolMasterData> {
           ..write('name: $name, ')
           ..write('type: $type, ')
           ..write('series: $series, ')
+          ..write('origin: $origin, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3162,6 +3214,7 @@ typedef $$SymbolMasterTableCreateCompanionBuilder =
       required String name,
       required String type,
       Value<String?> series,
+      Value<String> origin,
       Value<int> rowid,
     });
 typedef $$SymbolMasterTableUpdateCompanionBuilder =
@@ -3171,6 +3224,7 @@ typedef $$SymbolMasterTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String> type,
       Value<String?> series,
+      Value<String> origin,
       Value<int> rowid,
     });
 
@@ -3205,6 +3259,11 @@ class $$SymbolMasterTableFilterComposer
 
   ColumnFilters<String> get series => $composableBuilder(
     column: $table.series,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get origin => $composableBuilder(
+    column: $table.origin,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3242,6 +3301,11 @@ class $$SymbolMasterTableOrderingComposer
     column: $table.series,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get origin => $composableBuilder(
+    column: $table.origin,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SymbolMasterTableAnnotationComposer
@@ -3267,6 +3331,9 @@ class $$SymbolMasterTableAnnotationComposer
 
   GeneratedColumn<String> get series =>
       $composableBuilder(column: $table.series, builder: (column) => column);
+
+  GeneratedColumn<String> get origin =>
+      $composableBuilder(column: $table.origin, builder: (column) => column);
 }
 
 class $$SymbolMasterTableTableManager
@@ -3305,6 +3372,7 @@ class $$SymbolMasterTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> type = const Value.absent(),
                 Value<String?> series = const Value.absent(),
+                Value<String> origin = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SymbolMasterCompanion(
                 isin: isin,
@@ -3312,6 +3380,7 @@ class $$SymbolMasterTableTableManager
                 name: name,
                 type: type,
                 series: series,
+                origin: origin,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3321,6 +3390,7 @@ class $$SymbolMasterTableTableManager
                 required String name,
                 required String type,
                 Value<String?> series = const Value.absent(),
+                Value<String> origin = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SymbolMasterCompanion.insert(
                 isin: isin,
@@ -3328,6 +3398,7 @@ class $$SymbolMasterTableTableManager
                 name: name,
                 type: type,
                 series: series,
+                origin: origin,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

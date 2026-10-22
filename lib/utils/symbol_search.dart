@@ -9,44 +9,58 @@ class SymbolSearchIndex {
   final List<String> _symbols;
   final List<String> _names;
 
-  SymbolSearchIndex(Iterable<SymbolEntry> entries)
-    : _entries = List.unmodifiable(entries),
-      _symbols = [for (final e in entries) e.symbol.toLowerCase()],
-      _names = [for (final e in entries) e.name.toLowerCase()];
+  /// Traded value (TtlTrfVal, paise) per entry from the latest bhavcopy;
+  /// null when the instrument wasn't in it.
+  final List<int?> _tradedValues;
+
+  SymbolSearchIndex(
+    Iterable<SymbolEntry> entries, {
+    Map<String, int> tradedValueByIsin = const {},
+  }) : _entries = List.unmodifiable(entries),
+       _symbols = [for (final e in entries) e.symbol.toLowerCase()],
+       _names = [for (final e in entries) e.name.toLowerCase()],
+       _tradedValues = [for (final e in entries) tradedValueByIsin[e.isin]];
 
   int get length => _entries.length;
 
-  /// Ranking: exact ISIN, then symbol prefix, then symbol contains, then
-  /// name contains. Within a rank, shorter symbols first, then alphabetical.
+  /// Groups, in order:
+  /// 0. exact symbol (or exact ISIN),
+  /// 1. symbol prefix,
+  /// 2. name contains.
+  ///
+  /// Within a group: higher traded value in the latest bhavcopy first,
+  /// instruments without one after those, then symbol A–Z.
   List<SymbolEntry> search(String query, {int limit = maxSearchResults}) {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return const [];
 
-    final ranked = <(int, int)>[]; // (rank, index)
+    final ranked = <(int, int)>[]; // (group, index)
     for (var i = 0; i < _entries.length; i++) {
       final symbol = _symbols[i];
-      final int rank;
-      if (_entries[i].isin.toLowerCase() == q) {
-        rank = 0;
+      final int group;
+      if (symbol == q || _entries[i].isin.toLowerCase() == q) {
+        group = 0;
       } else if (symbol.startsWith(q)) {
-        rank = 1;
-      } else if (symbol.contains(q)) {
-        rank = 2;
+        group = 1;
       } else if (_names[i].contains(q)) {
-        rank = 3;
+        group = 2;
       } else {
         continue;
       }
-      ranked.add((rank, i));
+      ranked.add((group, i));
     }
 
     ranked.sort((a, b) {
-      final byRank = a.$1.compareTo(b.$1);
-      if (byRank != 0) return byRank;
-      final sa = _symbols[a.$2];
-      final sb = _symbols[b.$2];
-      final byLength = sa.length.compareTo(sb.length);
-      return byLength != 0 ? byLength : sa.compareTo(sb);
+      final byGroup = a.$1.compareTo(b.$1);
+      if (byGroup != 0) return byGroup;
+      final va = _tradedValues[a.$2];
+      final vb = _tradedValues[b.$2];
+      if (va != vb) {
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        return vb.compareTo(va);
+      }
+      return _symbols[a.$2].compareTo(_symbols[b.$2]);
     });
 
     return [for (final r in ranked.take(limit)) _entries[r.$2]];

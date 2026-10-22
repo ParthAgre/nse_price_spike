@@ -80,6 +80,8 @@ class DebugScreen extends ConsumerWidget {
         .valueOrNull
         ?.length;
     final events = ref.watch(networkLogProvider).events;
+    final kept = Map.fromEntries(settings.lastKeptSeriesCounts);
+    final publishLog = settings.publishLog;
     final theme = Theme.of(context);
 
     String orDash(Object? v) => v == null ? '—' : '$v';
@@ -163,8 +165,17 @@ class DebugScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text(
-              'Rows per series (kept: ${keptSeries.join(', ')})',
+              'Rows per series: kept / all',
               style: theme.textTheme.titleSmall,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              'Kept = equity shares (INE…01…) and ETFs (INF…) in any series '
+              'except ${excludedSeries.join(', ')}; one row per ISIN, '
+              'preferring ${seriesPriority.join(' > ')}.',
+              style: theme.textTheme.bodySmall,
             ),
           ),
           Padding(
@@ -180,8 +191,9 @@ class DebugScreen extends ConsumerWidget {
                         Chip(
                           visualDensity: VisualDensity.compact,
                           label: Text(
-                            '${series.isEmpty ? '(blank)' : series} $count',
-                            style: keptSeries.contains(series)
+                            '${series.isEmpty ? '(blank)' : series} '
+                            '${kept[series] ?? 0} / $count',
+                            style: (kept[series] ?? 0) > 0
                                 ? const TextStyle(fontWeight: FontWeight.bold)
                                 : null,
                           ),
@@ -235,8 +247,35 @@ class DebugScreen extends ConsumerWidget {
               subtitle: Text(
                 '${formatIstTime(e.time)} · ${e.status} · '
                 '${e.duration.inMilliseconds} ms'
-                '${e.bytes == null ? '' : ' · ${formatBytes(e.bytes!)}'}',
+                '${e.bytes == null ? '' : ' · ${formatBytes(e.bytes!)}'}'
+                '${e.lastModified == null ? '' : ' · Last-Modified ${formatIstTime(e.lastModified!)} IST'}',
               ),
+            ),
+          const Divider(height: 32),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+            child: Text(
+              'Publish times (last ${publishLog.length} downloads)',
+              style: theme.textTheme.titleSmall,
+            ),
+          ),
+          if (publishLog.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Text('No downloads recorded yet.'),
+            ),
+          for (final p in publishLog)
+            ListTile(
+              dense: true,
+              title: Text('${formatDisplayDate(p.tradeDate)} · ${p.source}'),
+              subtitle: Text(
+                'Last-Modified: '
+                '${p.lastModified == null ? '—' : '${formatIstTime(p.lastModified!)} IST'}\n'
+                'Zip entry: '
+                '${p.zipEntryTime == null ? '—' : '${formatIstTime(p.zipEntryTime!)} IST'}\n'
+                'Fetched: ${formatIstTime(p.fetchedAt)} IST',
+              ),
+              isThreeLine: true,
             ),
         ],
       ),

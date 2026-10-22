@@ -55,6 +55,29 @@ void main() {
     expect(file.rowsByIsin['INE002A01018']!.closePaise, 120900);
     expect(log.events.single.status, '200');
     expect(log.events.single.url, bhavcopyUrlFor(day));
+    expect(log.events.single.lastModified, isNull);
+    expect(file.serverLastModified, isNull);
+  });
+
+  test('Last-Modified is logged and attached to the file', () async {
+    final log = NetworkLog();
+    final provider = providerFor(
+      (_) async => http.Response.bytes(
+        fixtureBytes(fixtureBhavcopyFile),
+        200,
+        headers: {'last-modified': 'Wed, 21 Oct 2026 11:01:23 GMT'},
+      ),
+      log: log,
+    );
+    final file = await provider.fetchForDate(day);
+    final expected = DateTime.utc(2026, 10, 21, 11, 1, 23);
+    expect(file.serverLastModified, expected);
+    expect(log.events.single.lastModified, expected);
+  });
+
+  test('a malformed Last-Modified is ignored', () {
+    expect(parseHttpDate('yesterday'), isNull);
+    expect(parseHttpDate(null), isNull);
   });
 
   test('404 → PriceNotFound', () async {

@@ -10,6 +10,7 @@ import 'package:nse_price_spike/repositories/symbol_master_repository.dart';
 import 'package:nse_price_spike/services/file_cache.dart';
 import 'package:nse_price_spike/services/price_fetch_errors.dart';
 import 'package:nse_price_spike/services/refresh_service.dart';
+import 'package:nse_price_spike/utils/trading_day.dart';
 
 import '../helpers/fixtures.dart';
 import '../helpers/test_database.dart';
@@ -101,23 +102,37 @@ void main() {
       },
     );
 
-    test('refreshes ETF entries in symbol_master from the file', () async {
-      final provider = ScriptedPriceProvider({
-        d('2026-10-21'): fixtureDailyFile(),
-      });
-      await serviceWith(provider).refreshPrices();
-      final all = await symbols.watchAll().first;
-      expect(all.where((e) => e.type == InstrumentType.etf).length, 353);
-      expect(all.any((e) => e.symbol == 'NIFTYBEES'), isTrue);
-    });
+    test(
+      'refreshes symbol_master from the file: ETFs and SME stocks',
+      () async {
+        final provider = ScriptedPriceProvider({
+          d('2026-10-21'): fixtureDailyFile(),
+        });
+        await serviceWith(provider).refreshPrices();
+        final all = await symbols.watchAll().first;
+        expect(all.where((e) => e.type == InstrumentType.etf).length, 353);
+        expect(all.any((e) => e.symbol == 'NIFTYBEES'), isTrue);
+        expect(all.any((e) => e.isin == 'INE0O6N01012'), isTrue, reason: 'SM');
+        expect(all.any((e) => e.isin == 'INE124401014'), isTrue, reason: 'ST');
+      },
+    );
 
-    test('before 19:00 IST the previous weekday is requested', () async {
-      now = ist(2026, 10, 21, 18, 59);
+    test('before 17:00 IST the previous weekday is requested', () async {
+      now = ist(2026, 10, 21, 16, 59);
       final provider = ScriptedPriceProvider({
         d('2026-10-20'): dailyFileFor(d('2026-10-20')),
       });
       await serviceWith(provider).refreshPrices();
       expect(provider.requested, [d('2026-10-20')]);
+    });
+
+    test('from 17:00 IST today is requested', () async {
+      now = ist(2026, 10, 21, 17);
+      final provider = ScriptedPriceProvider({
+        d('2026-10-21'): fixtureDailyFile(),
+      });
+      await serviceWith(provider).refreshPrices();
+      expect(provider.requested, [d('2026-10-21')]);
     });
 
     test('stored trade date comes from the file, not the request', () async {
@@ -128,9 +143,39 @@ void main() {
       await serviceWith(provider).refreshPrices();
       expect((await settings.read()).lastFileTradeDate, d('2026-10-20'));
     });
+
+    test('records publish times (Last-Modified and zip entry)', () async {
+      final lastModified = DateTime.utc(2026, 10, 21, 11, 5);
+      final provider = ScriptedPriceProvider({
+        d('2026-10-21'): fixtureDailyFile().withServerLastModified(
+          lastModified,
+        ),
+      });
+      await serviceWith(provider).refreshPrices();
+      final log = (await settings.read()).publishLog;
+      expect(log, hasLength(1));
+      expect(log.single.tradeDate, d('2026-10-21'));
+      expect(log.single.lastModified, lastModified);
+      expect(toIst(log.single.zipEntryTime!).hour, 16);
+      expect(log.single.fetchedAt, now.toUtc());
+      expect(log.single.source, 'Scripted');
+    });
+
+    test('publish log keeps the newest 30 entries', () async {
+      final provider = ScriptedPriceProvider();
+      final service = serviceWith(provider);
+      for (var i = 0; i < 35; i++) {
+        provider.byDay[d('2026-10-21')] = fixtureDailyFile();
+        await service.refreshPrices(force: true);
+      }
+      expect((await settings.read()).publishLog, hasLength(30));
+    });
   });
 
-  group('holiday fallback', () {
+  group('holiday fallback (earlier dates; unchanged)', () {
+    // 09:00 IST Thursday: the expected day is Wednesday 21st, not today.
+    setUp(() => now = ist(2026, 10, 22, 9));
+
     test('404 for two days, then a file', () async {
       final provider = ScriptedPriceProvider({
         d('2026-10-19'): dailyFileFor(d('2026-10-19')),
@@ -143,7 +188,10 @@ void main() {
         d('2026-10-19'),
       ]);
       expect((outcome as Downloaded).attempts, 3);
-      expect((await settings.read()).lastFileTradeDate, d('2026-10-19'));
+      expect(outcome.todayPending, isFalse);
+      final view = await settings.read();
+      expect(view.lastFileTradeDate, d('2026-10-19'));
+      expect(view.lastSuccessIstDate, d('2026-10-22'), reason: 'counted');
     });
 
     test('walks back over the weekend', () async {
@@ -188,54 +236,151 @@ void main() {
 
     test('stops walking back at the already-stored day', () async {
       await serviceWith(
-        ScriptedPriceProvider({d('2026-10-21'): fixtureDailyFile()}),
-      ).refreshPrices();
+        ScriptedPriceProvider({d('2026-10-20'): dailyFileFor(d('2026-10-20'))}),
+      ).refreshPrices(force: true);
 
-      now = ist(2026, 10, 23, 20); // Friday; 22nd and 23rd not published
-      final provider = ScriptedPriceProvider({
-        d('2026-10-21'): fixtureDailyFile(),
-      });
+      now = ist(2026, 10, 23, 9); // Friday morning → target Thursday 22nd
+      final provider = ScriptedPriceProvider();
       final outcome = await serviceWith(provider).refreshPrices();
 
       expect(outcome, isA<NoNewFile>());
-      expect(provider.requested, [d('2026-10-23'), d('2026-10-22')]);
+      expect(provider.requested, [d('2026-10-22'), d('2026-10-21')]);
     });
-  });
 
-  group('once per IST day', () {
     test('a second refresh the same day does not download again', () async {
-      now = ist(2026, 10, 22, 20); // Thursday; today's file is late (404)
       final provider = ScriptedPriceProvider({
-        d('2026-10-21'): fixtureDailyFile(),
+        d('2026-10-20'): dailyFileFor(d('2026-10-20')),
       });
       final service = serviceWith(provider);
-
       expect(await service.refreshPrices(), isA<Downloaded>());
-      expect(provider.requested, [d('2026-10-22'), d('2026-10-21')]);
+      expect(provider.requested, [d('2026-10-21'), d('2026-10-20')]);
 
-      now = ist(2026, 10, 22, 22);
+      now = ist(2026, 10, 22, 12);
       expect(await service.refreshPrices(), isA<AlreadyDownloadedToday>());
       expect(provider.requested, hasLength(2), reason: 'no new request');
     });
+  });
 
-    test('"Download now" (force) bypasses the daily limit', () async {
-      now = ist(2026, 10, 22, 20);
+  group("today's file not published yet (404 after 17:00)", () {
+    // Thursday 22nd, 17:30 IST; Wednesday's file is already stored.
+    setUp(() async {
+      await serviceWith(
+        ScriptedPriceProvider({d('2026-10-21'): fixtureDailyFile()}),
+      ).refreshPrices();
+      now = ist(2026, 10, 22, 17, 30);
+    });
+
+    test('keeps previous prices; not counted as the download', () async {
+      final provider = ScriptedPriceProvider();
+      final outcome = await serviceWith(provider).refreshPrices();
+
+      expect(outcome, isA<NotPublishedYet>());
+      expect(
+        outcome.message,
+        "Today's NSE file isn't published yet — prices as of 21 Oct 2026",
+      );
+      expect(provider.requested, [d('2026-10-22')], reason: '21st is stored');
+      expect((await storedQuotes()).single.closePaise, 120900);
+      final view = await settings.read();
+      expect(view.lastSuccessIstDate, d('2026-10-21'), reason: 'unchanged');
+      expect(view.lastFileTradeDate, d('2026-10-21'));
+      expect(view.lastRefreshError, isNull);
+      expect(view.todayPendingCheckedAt, now.toUtc());
+    });
+
+    test('open/resume retries at most once every 30 minutes', () async {
+      final provider = ScriptedPriceProvider();
+      final service = serviceWith(provider);
+      await service.refreshPrices(automatic: true);
+      expect(provider.requested, hasLength(1));
+
+      now = now.add(const Duration(minutes: 29));
+      final throttled = await service.refreshPrices(automatic: true);
+      expect(throttled, isA<NotPublishedYet>());
+      expect((throttled as NotPublishedYet).nextCheckAt, ist(2026, 10, 22, 18));
+      expect(provider.requested, hasLength(1), reason: 'no request');
+
+      now = now.add(const Duration(minutes: 1));
+      await service.refreshPrices(automatic: true);
+      expect(provider.requested, hasLength(2));
+    });
+
+    test('a manual refresh is not throttled', () async {
+      final provider = ScriptedPriceProvider();
+      final service = serviceWith(provider);
+      await service.refreshPrices(automatic: true);
+      now = now.add(const Duration(minutes: 5));
+      await service.refreshPrices();
+      expect(provider.requested, hasLength(2));
+    });
+
+    test('once published, the file is downloaded and counted', () async {
+      final provider = ScriptedPriceProvider();
+      final service = serviceWith(provider);
+      await service.refreshPrices(automatic: true);
+
+      now = now.add(const Duration(minutes: 45));
+      provider.byDay[d('2026-10-22')] = dailyFileFor(d('2026-10-22'));
+      final outcome = await service.refreshPrices(automatic: true);
+      expect(outcome, isA<Downloaded>());
+      expect((outcome as Downloaded).todayPending, isFalse);
+      final view = await settings.read();
+      expect(view.lastSuccessIstDate, d('2026-10-22'));
+      expect(view.todayPendingCheckedAt, isNull);
+
+      expect(await service.refreshPrices(automatic: true), isA<UpToDate>());
+    });
+
+    test('an earlier file fetched meanwhile is not counted', () async {
+      // Nothing stored yet: today 404s, Wednesday's file is fetched instead.
+      await serviceWith(ScriptedPriceProvider()).clearCache();
       final provider = ScriptedPriceProvider({
         d('2026-10-21'): fixtureDailyFile(),
       });
       final service = serviceWith(provider);
-      await service.refreshPrices();
 
+      final first = await service.refreshPrices();
+      expect(first, isA<Downloaded>());
+      expect((first as Downloaded).todayPending, isTrue);
+      expect(provider.requested, [d('2026-10-22'), d('2026-10-21')]);
+      expect((await settings.read()).lastSuccessIstDate, isNull);
+
+      // A later check still goes for today's file.
+      now = now.add(const Duration(minutes: 31));
       provider.byDay[d('2026-10-22')] = dailyFileFor(d('2026-10-22'));
-      final outcome = await service.refreshPrices(force: true);
-      expect(outcome, isA<Downloaded>());
+      expect(await service.refreshPrices(automatic: true), isA<Downloaded>());
       expect((await settings.read()).lastFileTradeDate, d('2026-10-22'));
     });
 
+    test('a pending check from yesterday does not throttle today', () async {
+      final provider = ScriptedPriceProvider();
+      final service = serviceWith(provider);
+      await service.refreshPrices(automatic: true); // Thu 17:30
+
+      now = ist(2026, 10, 23, 17, 10); // Fri; the 21st is still the latest
+      await service.refreshPrices(automatic: true);
+      expect(provider.requested, [
+        d('2026-10-22'),
+        d('2026-10-23'),
+        d('2026-10-22'),
+      ]);
+    });
+
+    test('"Download now" (force) retries immediately', () async {
+      final provider = ScriptedPriceProvider();
+      final service = serviceWith(provider);
+      await service.refreshPrices(automatic: true);
+      provider.byDay[d('2026-10-22')] = dailyFileFor(d('2026-10-22'));
+      expect(await service.refreshPrices(force: true), isA<Downloaded>());
+      expect((await settings.read()).lastFileTradeDate, d('2026-10-22'));
+    });
+  });
+
+  group('daily limit', () {
     test('the next IST day downloads again', () async {
       now = ist(2026, 10, 22, 20);
       final provider = ScriptedPriceProvider({
-        d('2026-10-21'): fixtureDailyFile(),
+        d('2026-10-22'): dailyFileFor(d('2026-10-22')),
       });
       final service = serviceWith(provider);
       await service.refreshPrices();
@@ -355,7 +500,7 @@ void main() {
       final service = serviceWith(provider);
 
       expect(await service.refreshEquityList(), isA<EquityListUpdated>());
-      expect(await symbols.count(), 2606);
+      expect(await symbols.count(), 2605);
 
       now = now.add(const Duration(days: 6));
       expect(await service.refreshEquityList(), isA<EquityListSkipped>());
@@ -380,7 +525,20 @@ void main() {
       final service = serviceWith(provider);
       await service.refreshPrices();
       await service.refreshEquityList();
-      expect(await symbols.count(), 2606 + 353);
+      expect(await symbols.count(), 2605 + 353 + 476); // + ETFs + SM/ST
+    });
+
+    test('an EQUITY_L rebuild keeps the bhavcopy-only rows', () async {
+      final provider = ScriptedPriceProvider({
+        d('2026-10-21'): fixtureDailyFile(),
+      });
+      final service = serviceWith(provider);
+      await service.refreshEquityList();
+      await service.refreshPrices();
+      await service.refreshEquityList(force: true);
+      final all = await symbols.watchAll().first;
+      expect(all, hasLength(2605 + 353 + 476));
+      expect(all.any((e) => e.isin == 'INE0O6N01012'), isTrue, reason: 'SM');
     });
 
     test('a failure is reported, not thrown', () async {
