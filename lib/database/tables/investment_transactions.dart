@@ -21,5 +21,8 @@ class InvestmentTransactions extends Table {
   /// `YYYY-MM-DD`; null means an opening position.
   TextColumn get date => text().nullable()();
 
+  /// Up to 200 characters (schema v3).
+  TextColumn get notes => text().nullable()();
+
   DateTimeColumn get createdAt => dateTime()();
 }

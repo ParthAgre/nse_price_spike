@@ -63,9 +63,43 @@ void main() {
       expect(formatRupees(1209000), '₹12,090.00');
       expect(formatRupees(12345678901), '₹12,34,56,789.01');
       expect(formatRupees(5), '₹0.05');
-      expect(formatRupees(-7000), '-₹70.00');
+      expect(formatRupees(-7000), '−₹70.00');
       expect(formatRupees(7000, showPlus: true), '+₹70.00');
       expect(formatRupees(0, showPlus: true), '₹0.00');
+    });
+
+    test('formatRupees: lakh and crore grouping, negatives, zero', () {
+      expect(formatRupees(10718590), '₹1,07,185.90');
+      expect(formatRupees(1234567890), '₹1,23,45,678.90');
+      expect(formatRupees(-125000), '−₹1,250.00');
+      expect(formatRupees(0), '₹0.00');
+      expect(formatRupees(99999), '₹999.99');
+      expect(formatRupees(100000), '₹1,000.00');
+      expect(formatRupees(10000000), '₹1,00,000.00');
+      expect(formatRupees(1000000000), '₹1,00,00,000.00');
+    });
+
+    test('formatRupeesWhole rounds half away from zero', () {
+      expect(formatRupeesWhole(10718590), '₹1,07,186');
+      expect(formatRupeesWhole(10718549), '₹1,07,185');
+      expect(formatRupeesWhole(-125050), '−₹1,251');
+      expect(formatRupeesWhole(1209000, showPlus: true), '+₹12,090');
+      expect(formatRupeesWhole(0, showPlus: true), '₹0');
+    });
+
+    test('formatPercent: two decimals with an explicit sign', () {
+      expect(formatPercent(0.0991), '+9.91%');
+      expect(formatPercent(-0.0058), '−0.58%');
+      expect(formatPercent(0), '0.00%');
+      expect(formatPercent(-0.00001), '0.00%');
+    });
+
+    test('formatRateMilli and formatShare', () {
+      expect(formatRateMilli(7125), '7.125');
+      expect(formatRateMilli(7000), '7');
+      expect(formatRateMilli(7500), '7.5');
+      expect(formatRateMilli(650), '0.65');
+      expect(formatShare(0.6243), '62.4%');
     });
 
     test('formatQuantity trims trailing zeros', () {
@@ -76,7 +110,7 @@ void main() {
 
     test('formatPercent', () {
       expect(formatPercent(0.0058), '+0.58%');
-      expect(formatPercent(-0.1), '-10.00%');
+      expect(formatPercent(-0.1), '−10.00%');
       expect(formatPercent(null), '—');
     });
 

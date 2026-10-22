@@ -53,13 +53,11 @@ void main() {
       // Refresh on open: EQUITY_L + bhavcopy from fixtures.
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('Prices as of 21 Oct 2026 · NSE closing prices'),
-        findsOneWidget,
-      );
-      expect(find.textContaining('No holdings yet'), findsOneWidget);
+      expect(find.text('Track your investments'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('addButton')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('sheetStock')));
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byKey(const Key('searchField')), 'reli');
@@ -77,8 +75,13 @@ void main() {
       await tester.tap(find.byKey(const Key('saveButton')));
       await tester.pumpAndSettle();
 
-      // Back on the portfolio: 10 × ₹1,209.00, day change 10 × (1209 − 1202).
-      expect(textOf(tester, find.byKey(const Key('totalValue'))), '₹12,090.00');
+      // Back on Investments: 10 × ₹1,209.00 (shown in whole rupees), day
+      // change 10 × (1209 − 1202).
+      expect(
+        find.text('Market prices as of 21 Oct 2026 · FD values as of today'),
+        findsOneWidget,
+      );
+      expect(textOf(tester, find.byKey(const Key('totalValue'))), '₹12,090');
       expect(
         textOf(
           tester,
@@ -117,6 +120,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('addButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('sheetStock')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('searchField')), 'RELIANCE');
     await tester.pumpAndSettle();

@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'tables/app_settings.dart';
+import 'tables/fixed_deposits.dart';
 import 'tables/instruments.dart';
 import 'tables/investment_transactions.dart';
 import 'tables/price_quotes.dart';
@@ -21,13 +22,14 @@ const databaseFileName = 'nse_price_spike.sqlite';
     PriceQuotes,
     SymbolMaster,
     AppSettings,
+    FixedDeposits,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -39,6 +41,11 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           "UPDATE symbol_master SET origin = 'bhavcopy' WHERE type = 'etf'",
         );
+      }
+      if (from < 3) {
+        // v3: fixed deposits, and notes on stock/ETF entries.
+        await m.createTable(fixedDeposits);
+        await m.addColumn(investmentTransactions, investmentTransactions.notes);
       }
     },
     beforeOpen: (details) async {
@@ -52,6 +59,7 @@ class AppDatabase extends _$AppDatabase {
     await delete(investmentTransactions).go();
     await delete(instruments).go();
     await delete(symbolMaster).go();
+    await delete(fixedDeposits).go();
     await delete(appSettings).go();
   });
 }

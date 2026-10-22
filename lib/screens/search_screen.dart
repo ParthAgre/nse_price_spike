@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nse_price_spike/constants/strings.dart';
 import 'package:nse_price_spike/providers/refresh_providers.dart';
 import 'package:nse_price_spike/screens/holding_form_screen.dart';
 
@@ -23,7 +24,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           key: const Key('searchField'),
           autofocus: true,
           decoration: const InputDecoration(
-            hintText: 'Symbol, name or ISIN',
+            hintText: S.searchHint,
             border: InputBorder.none,
           ),
           textCapitalization: TextCapitalization.characters,
@@ -32,28 +33,25 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ),
       body: index.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Could not load symbols: $e')),
+        error: (e, _) => Center(child: Text(S.searchLoadFailed(e))),
         data: (index) {
           if (index.length == 0) {
             return const Padding(
               padding: EdgeInsets.all(24),
-              child: Text(
-                'The symbol list has not been downloaded yet. Go back and '
-                'pull down to refresh, or use Debug → "Re-download EQUITY_L".',
-              ),
+              child: Text(S.searchNoList),
             );
           }
           if (_query.trim().isEmpty) {
             return Padding(
               padding: const EdgeInsets.all(24),
-              child: Text('Type to search ${index.length} stocks and ETFs.'),
+              child: Text(S.searchPrompt(index.length)),
             );
           }
           final results = index.search(_query);
           if (results.isEmpty) {
             return const Padding(
               padding: EdgeInsets.all(24),
-              child: Text('No matches.'),
+              child: Text(S.searchNoMatches),
             );
           }
           return ListView.builder(

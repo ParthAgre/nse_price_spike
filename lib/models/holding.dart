@@ -21,6 +21,7 @@ class HoldingEntry {
 
   /// Null for an opening position.
   final DateTime? date;
+  final String? notes;
   final DateTime createdAt;
 
   const HoldingEntry({
@@ -31,6 +32,7 @@ class HoldingEntry {
     required this.pricePaise,
     required this.feesPaise,
     required this.date,
+    this.notes,
     required this.createdAt,
   });
 

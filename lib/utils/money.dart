@@ -68,15 +68,33 @@ String _groupIndian(int n) {
   return '${groups.join(',')},$last3';
 }
 
-/// 1209000 → "₹12,090.00". With [showPlus], positive values get a "+".
+/// The typographic minus (U+2212) used for every negative figure shown.
+const minusSign = '−';
+
+String _signed(String body, int value, bool showPlus) {
+  if (value < 0) return '$minusSign$body';
+  if (showPlus && value > 0) return '+$body';
+  return body;
+}
+
+/// 10718590 → "₹1,07,185.90"; −125000 → "−₹1,250.00". With [showPlus],
+/// positive values get a "+". Use it for every rupee amount shown.
 String formatRupees(int paise, {bool showPlus = false}) {
-  final negative = paise < 0;
   final abs = paise.abs();
   final body =
       '₹${_groupIndian(abs ~/ 100)}.${(abs % 100).toString().padLeft(2, '0')}';
-  if (negative) return '-$body';
-  if (showPlus && paise > 0) return '+$body';
-  return body;
+  return _signed(body, paise, showPlus);
+}
+
+/// Whole rupees for large summary figures, rounded half away from zero:
+/// 10718590 → "₹1,07,186".
+String formatRupeesWhole(int paise, {bool showPlus = false}) {
+  final rupees = (paise.abs() + 50) ~/ 100;
+  return _signed(
+    '₹${_groupIndian(rupees)}',
+    paise < 0 ? -rupees : rupees,
+    showPlus,
+  );
 }
 
 /// Plain decimal for form fields: 120900 → "1209.00".
@@ -99,14 +117,29 @@ String formatQuantity(int scaled) {
 String quantityToInput(int scaled) =>
     formatQuantity(scaled).replaceAll(',', '');
 
-/// 0.0578 → "+5.78%". Display-only, so doubles are fine here.
+/// 0.0578 → "+5.78%", −0.0058 → "−0.58%". Display-only, so doubles are
+/// fine here. A value that rounds to 0.00 gets no sign.
 String formatPercent(double? fraction, {bool showPlus = true}) {
   if (fraction == null) return '—';
-  final pct = fraction * 100;
-  final text = '${pct.abs().toStringAsFixed(2)}%';
-  if (pct < 0) return '-$text';
-  if (showPlus && pct > 0) return '+$text';
-  return text;
+  final text = (fraction * 100).abs().toStringAsFixed(2);
+  if (text == '0.00') return '0.00%';
+  if (fraction < 0) return '$minusSign$text%';
+  if (showPlus) return '+$text%';
+  return '$text%';
+}
+
+/// Share of a whole, one decimal, no sign: 0.6243 → "62.4%".
+String formatShare(double fraction) =>
+    '${(fraction * 100).toStringAsFixed(1)}%';
+
+/// Interest rate in thousandths of a percent: 7125 → "7.125", 7000 → "7".
+String formatRateMilli(int milliPct) {
+  final whole = milliPct ~/ 1000;
+  final frac = (milliPct % 1000)
+      .toString()
+      .padLeft(3, '0')
+      .replaceFirst(RegExp(r'0+$'), '');
+  return frac.isEmpty ? '$whole' : '$whole.$frac';
 }
 
 /// 639151 → "624.2 KB".

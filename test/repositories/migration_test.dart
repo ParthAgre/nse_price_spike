@@ -17,6 +17,21 @@ void main() {
                 isin TEXT NOT NULL, symbol TEXT NOT NULL, name TEXT NOT NULL,
                 type TEXT NOT NULL, series TEXT NULL, PRIMARY KEY (isin))
             ''');
+            // The other v1 tables that later steps alter (unchanged in v2).
+            raw.execute(
+              'CREATE TABLE "instruments" ("id" INTEGER NOT NULL PRIMARY KEY '
+              'AUTOINCREMENT, "isin" TEXT NOT NULL UNIQUE, "symbol" TEXT NOT '
+              'NULL, "name" TEXT NOT NULL, "type" TEXT NOT NULL, "series" '
+              'TEXT NULL)',
+            );
+            raw.execute(
+              'CREATE TABLE "investment_transactions" ("id" INTEGER NOT NULL '
+              'PRIMARY KEY AUTOINCREMENT, "instrument_id" INTEGER NOT NULL '
+              'REFERENCES instruments (id), "kind" TEXT NOT NULL, '
+              '"quantity_scaled" INTEGER NOT NULL, "price_paise" INTEGER NOT '
+              'NULL, "fees_paise" INTEGER NOT NULL DEFAULT 0, "date" TEXT '
+              'NULL, "created_at" INTEGER NOT NULL)',
+            );
             raw.execute(
               "INSERT INTO symbol_master VALUES "
               "('INE002A01018','RELIANCE','Reliance','stock','EQ'),"

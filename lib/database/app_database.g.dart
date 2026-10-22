@@ -476,6 +476,15 @@ class $InvestmentTransactionsTable extends InvestmentTransactions
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -496,6 +505,7 @@ class $InvestmentTransactionsTable extends InvestmentTransactions
     pricePaise,
     feesPaise,
     date,
+    notes,
     createdAt,
   ];
   @override
@@ -563,6 +573,12 @@ class $InvestmentTransactionsTable extends InvestmentTransactions
         date.isAcceptableOrUnknown(data['date']!, _dateMeta),
       );
     }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -611,6 +627,10 @@ class $InvestmentTransactionsTable extends InvestmentTransactions
         DriftSqlType.string,
         data['${effectivePrefix}date'],
       ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -639,6 +659,9 @@ class InvestmentTransactionData extends DataClass
 
   /// `YYYY-MM-DD`; null means an opening position.
   final String? date;
+
+  /// Up to 200 characters (schema v3).
+  final String? notes;
   final DateTime createdAt;
   const InvestmentTransactionData({
     required this.id,
@@ -648,6 +671,7 @@ class InvestmentTransactionData extends DataClass
     required this.pricePaise,
     required this.feesPaise,
     this.date,
+    this.notes,
     required this.createdAt,
   });
   @override
@@ -662,6 +686,9 @@ class InvestmentTransactionData extends DataClass
     if (!nullToAbsent || date != null) {
       map['date'] = Variable<String>(date);
     }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -675,6 +702,9 @@ class InvestmentTransactionData extends DataClass
       pricePaise: Value(pricePaise),
       feesPaise: Value(feesPaise),
       date: date == null && nullToAbsent ? const Value.absent() : Value(date),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
       createdAt: Value(createdAt),
     );
   }
@@ -692,6 +722,7 @@ class InvestmentTransactionData extends DataClass
       pricePaise: serializer.fromJson<int>(json['pricePaise']),
       feesPaise: serializer.fromJson<int>(json['feesPaise']),
       date: serializer.fromJson<String?>(json['date']),
+      notes: serializer.fromJson<String?>(json['notes']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -706,6 +737,7 @@ class InvestmentTransactionData extends DataClass
       'pricePaise': serializer.toJson<int>(pricePaise),
       'feesPaise': serializer.toJson<int>(feesPaise),
       'date': serializer.toJson<String?>(date),
+      'notes': serializer.toJson<String?>(notes),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -718,6 +750,7 @@ class InvestmentTransactionData extends DataClass
     int? pricePaise,
     int? feesPaise,
     Value<String?> date = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
     DateTime? createdAt,
   }) => InvestmentTransactionData(
     id: id ?? this.id,
@@ -727,6 +760,7 @@ class InvestmentTransactionData extends DataClass
     pricePaise: pricePaise ?? this.pricePaise,
     feesPaise: feesPaise ?? this.feesPaise,
     date: date.present ? date.value : this.date,
+    notes: notes.present ? notes.value : this.notes,
     createdAt: createdAt ?? this.createdAt,
   );
   InvestmentTransactionData copyWithCompanion(
@@ -746,6 +780,7 @@ class InvestmentTransactionData extends DataClass
           : this.pricePaise,
       feesPaise: data.feesPaise.present ? data.feesPaise.value : this.feesPaise,
       date: data.date.present ? data.date.value : this.date,
+      notes: data.notes.present ? data.notes.value : this.notes,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -760,6 +795,7 @@ class InvestmentTransactionData extends DataClass
           ..write('pricePaise: $pricePaise, ')
           ..write('feesPaise: $feesPaise, ')
           ..write('date: $date, ')
+          ..write('notes: $notes, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -774,6 +810,7 @@ class InvestmentTransactionData extends DataClass
     pricePaise,
     feesPaise,
     date,
+    notes,
     createdAt,
   );
   @override
@@ -787,6 +824,7 @@ class InvestmentTransactionData extends DataClass
           other.pricePaise == this.pricePaise &&
           other.feesPaise == this.feesPaise &&
           other.date == this.date &&
+          other.notes == this.notes &&
           other.createdAt == this.createdAt);
 }
 
@@ -799,6 +837,7 @@ class InvestmentTransactionsCompanion
   final Value<int> pricePaise;
   final Value<int> feesPaise;
   final Value<String?> date;
+  final Value<String?> notes;
   final Value<DateTime> createdAt;
   const InvestmentTransactionsCompanion({
     this.id = const Value.absent(),
@@ -808,6 +847,7 @@ class InvestmentTransactionsCompanion
     this.pricePaise = const Value.absent(),
     this.feesPaise = const Value.absent(),
     this.date = const Value.absent(),
+    this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   InvestmentTransactionsCompanion.insert({
@@ -818,6 +858,7 @@ class InvestmentTransactionsCompanion
     required int pricePaise,
     this.feesPaise = const Value.absent(),
     this.date = const Value.absent(),
+    this.notes = const Value.absent(),
     required DateTime createdAt,
   }) : instrumentId = Value(instrumentId),
        kind = Value(kind),
@@ -832,6 +873,7 @@ class InvestmentTransactionsCompanion
     Expression<int>? pricePaise,
     Expression<int>? feesPaise,
     Expression<String>? date,
+    Expression<String>? notes,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -842,6 +884,7 @@ class InvestmentTransactionsCompanion
       if (pricePaise != null) 'price_paise': pricePaise,
       if (feesPaise != null) 'fees_paise': feesPaise,
       if (date != null) 'date': date,
+      if (notes != null) 'notes': notes,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -854,6 +897,7 @@ class InvestmentTransactionsCompanion
     Value<int>? pricePaise,
     Value<int>? feesPaise,
     Value<String?>? date,
+    Value<String?>? notes,
     Value<DateTime>? createdAt,
   }) {
     return InvestmentTransactionsCompanion(
@@ -864,6 +908,7 @@ class InvestmentTransactionsCompanion
       pricePaise: pricePaise ?? this.pricePaise,
       feesPaise: feesPaise ?? this.feesPaise,
       date: date ?? this.date,
+      notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -892,6 +937,9 @@ class InvestmentTransactionsCompanion
     if (date.present) {
       map['date'] = Variable<String>(date.value);
     }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -908,6 +956,7 @@ class InvestmentTransactionsCompanion
           ..write('pricePaise: $pricePaise, ')
           ..write('feesPaise: $feesPaise, ')
           ..write('date: $date, ')
+          ..write('notes: $notes, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -2009,6 +2058,1079 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingData> {
   }
 }
 
+class $FixedDepositsTable extends FixedDeposits
+    with TableInfo<$FixedDepositsTable, FixedDepositData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FixedDepositsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _institutionMeta = const VerificationMeta(
+    'institution',
+  );
+  @override
+  late final GeneratedColumn<String> institution = GeneratedColumn<String>(
+    'institution',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nicknameMeta = const VerificationMeta(
+    'nickname',
+  );
+  @override
+  late final GeneratedColumn<String> nickname = GeneratedColumn<String>(
+    'nickname',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _principalPaiseMeta = const VerificationMeta(
+    'principalPaise',
+  );
+  @override
+  late final GeneratedColumn<int> principalPaise = GeneratedColumn<int>(
+    'principal_paise',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _rateMilliPctMeta = const VerificationMeta(
+    'rateMilliPct',
+  );
+  @override
+  late final GeneratedColumn<int> rateMilliPct = GeneratedColumn<int>(
+    'rate_milli_pct',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startDateMeta = const VerificationMeta(
+    'startDate',
+  );
+  @override
+  late final GeneratedColumn<String> startDate = GeneratedColumn<String>(
+    'start_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _maturityDateMeta = const VerificationMeta(
+    'maturityDate',
+  );
+  @override
+  late final GeneratedColumn<String> maturityDate = GeneratedColumn<String>(
+    'maturity_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _interestTypeMeta = const VerificationMeta(
+    'interestType',
+  );
+  @override
+  late final GeneratedColumn<String> interestType = GeneratedColumn<String>(
+    'interest_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payoutFrequencyMeta = const VerificationMeta(
+    'payoutFrequency',
+  );
+  @override
+  late final GeneratedColumn<String> payoutFrequency = GeneratedColumn<String>(
+    'payout_frequency',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _compoundingMeta = const VerificationMeta(
+    'compounding',
+  );
+  @override
+  late final GeneratedColumn<String> compounding = GeneratedColumn<String>(
+    'compounding',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receiptMaturityPaiseMeta =
+      const VerificationMeta('receiptMaturityPaise');
+  @override
+  late final GeneratedColumn<int> receiptMaturityPaise = GeneratedColumn<int>(
+    'receipt_maturity_paise',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _payoutAmountPaiseMeta = const VerificationMeta(
+    'payoutAmountPaise',
+  );
+  @override
+  late final GeneratedColumn<int> payoutAmountPaise = GeneratedColumn<int>(
+    'payout_amount_paise',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('open'),
+  );
+  static const VerificationMeta _closedOnMeta = const VerificationMeta(
+    'closedOn',
+  );
+  @override
+  late final GeneratedColumn<String> closedOn = GeneratedColumn<String>(
+    'closed_on',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _amountReceivedPaiseMeta =
+      const VerificationMeta('amountReceivedPaise');
+  @override
+  late final GeneratedColumn<int> amountReceivedPaise = GeneratedColumn<int>(
+    'amount_received_paise',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _renewedIntoIdMeta = const VerificationMeta(
+    'renewedIntoId',
+  );
+  @override
+  late final GeneratedColumn<int> renewedIntoId = GeneratedColumn<int>(
+    'renewed_into_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    institution,
+    nickname,
+    principalPaise,
+    rateMilliPct,
+    startDate,
+    maturityDate,
+    interestType,
+    payoutFrequency,
+    compounding,
+    receiptMaturityPaise,
+    payoutAmountPaise,
+    status,
+    closedOn,
+    amountReceivedPaise,
+    renewedIntoId,
+    notes,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'fixed_deposits';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FixedDepositData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('institution')) {
+      context.handle(
+        _institutionMeta,
+        institution.isAcceptableOrUnknown(
+          data['institution']!,
+          _institutionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_institutionMeta);
+    }
+    if (data.containsKey('nickname')) {
+      context.handle(
+        _nicknameMeta,
+        nickname.isAcceptableOrUnknown(data['nickname']!, _nicknameMeta),
+      );
+    }
+    if (data.containsKey('principal_paise')) {
+      context.handle(
+        _principalPaiseMeta,
+        principalPaise.isAcceptableOrUnknown(
+          data['principal_paise']!,
+          _principalPaiseMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_principalPaiseMeta);
+    }
+    if (data.containsKey('rate_milli_pct')) {
+      context.handle(
+        _rateMilliPctMeta,
+        rateMilliPct.isAcceptableOrUnknown(
+          data['rate_milli_pct']!,
+          _rateMilliPctMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_rateMilliPctMeta);
+    }
+    if (data.containsKey('start_date')) {
+      context.handle(
+        _startDateMeta,
+        startDate.isAcceptableOrUnknown(data['start_date']!, _startDateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startDateMeta);
+    }
+    if (data.containsKey('maturity_date')) {
+      context.handle(
+        _maturityDateMeta,
+        maturityDate.isAcceptableOrUnknown(
+          data['maturity_date']!,
+          _maturityDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_maturityDateMeta);
+    }
+    if (data.containsKey('interest_type')) {
+      context.handle(
+        _interestTypeMeta,
+        interestType.isAcceptableOrUnknown(
+          data['interest_type']!,
+          _interestTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_interestTypeMeta);
+    }
+    if (data.containsKey('payout_frequency')) {
+      context.handle(
+        _payoutFrequencyMeta,
+        payoutFrequency.isAcceptableOrUnknown(
+          data['payout_frequency']!,
+          _payoutFrequencyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('compounding')) {
+      context.handle(
+        _compoundingMeta,
+        compounding.isAcceptableOrUnknown(
+          data['compounding']!,
+          _compoundingMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_compoundingMeta);
+    }
+    if (data.containsKey('receipt_maturity_paise')) {
+      context.handle(
+        _receiptMaturityPaiseMeta,
+        receiptMaturityPaise.isAcceptableOrUnknown(
+          data['receipt_maturity_paise']!,
+          _receiptMaturityPaiseMeta,
+        ),
+      );
+    }
+    if (data.containsKey('payout_amount_paise')) {
+      context.handle(
+        _payoutAmountPaiseMeta,
+        payoutAmountPaise.isAcceptableOrUnknown(
+          data['payout_amount_paise']!,
+          _payoutAmountPaiseMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('closed_on')) {
+      context.handle(
+        _closedOnMeta,
+        closedOn.isAcceptableOrUnknown(data['closed_on']!, _closedOnMeta),
+      );
+    }
+    if (data.containsKey('amount_received_paise')) {
+      context.handle(
+        _amountReceivedPaiseMeta,
+        amountReceivedPaise.isAcceptableOrUnknown(
+          data['amount_received_paise']!,
+          _amountReceivedPaiseMeta,
+        ),
+      );
+    }
+    if (data.containsKey('renewed_into_id')) {
+      context.handle(
+        _renewedIntoIdMeta,
+        renewedIntoId.isAcceptableOrUnknown(
+          data['renewed_into_id']!,
+          _renewedIntoIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FixedDepositData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FixedDepositData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      institution: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}institution'],
+      )!,
+      nickname: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}nickname'],
+      ),
+      principalPaise: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}principal_paise'],
+      )!,
+      rateMilliPct: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rate_milli_pct'],
+      )!,
+      startDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}start_date'],
+      )!,
+      maturityDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}maturity_date'],
+      )!,
+      interestType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}interest_type'],
+      )!,
+      payoutFrequency: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payout_frequency'],
+      ),
+      compounding: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}compounding'],
+      )!,
+      receiptMaturityPaise: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}receipt_maturity_paise'],
+      ),
+      payoutAmountPaise: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}payout_amount_paise'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      closedOn: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}closed_on'],
+      ),
+      amountReceivedPaise: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}amount_received_paise'],
+      ),
+      renewedIntoId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}renewed_into_id'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $FixedDepositsTable createAlias(String alias) {
+    return $FixedDepositsTable(attachedDatabase, alias);
+  }
+}
+
+class FixedDepositData extends DataClass
+    implements Insertable<FixedDepositData> {
+  final int id;
+  final String institution;
+  final String? nickname;
+  final int principalPaise;
+
+  /// Thousandths of a percent: 7.125% = 7125.
+  final int rateMilliPct;
+
+  /// `YYYY-MM-DD`.
+  final String startDate;
+
+  /// `YYYY-MM-DD`. Only the date is stored; tenure is an input method.
+  final String maturityDate;
+
+  /// `cumulative` | `payout`.
+  final String interestType;
+
+  /// `monthly` | `quarterly` | `halfYearly` | `yearly`; payout only.
+  final String? payoutFrequency;
+
+  /// Same values; used for cumulative FDs.
+  final String compounding;
+  final int? receiptMaturityPaise;
+  final int? payoutAmountPaise;
+
+  /// `open` | `withdrawn` | `renewed` | `closed_early`.
+  final String status;
+
+  /// `YYYY-MM-DD`.
+  final String? closedOn;
+  final int? amountReceivedPaise;
+
+  /// The FD this one was renewed into. Not a foreign key, so either FD can
+  /// be deleted; the repository clears dangling links.
+  final int? renewedIntoId;
+  final String? notes;
+  final DateTime createdAt;
+  const FixedDepositData({
+    required this.id,
+    required this.institution,
+    this.nickname,
+    required this.principalPaise,
+    required this.rateMilliPct,
+    required this.startDate,
+    required this.maturityDate,
+    required this.interestType,
+    this.payoutFrequency,
+    required this.compounding,
+    this.receiptMaturityPaise,
+    this.payoutAmountPaise,
+    required this.status,
+    this.closedOn,
+    this.amountReceivedPaise,
+    this.renewedIntoId,
+    this.notes,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['institution'] = Variable<String>(institution);
+    if (!nullToAbsent || nickname != null) {
+      map['nickname'] = Variable<String>(nickname);
+    }
+    map['principal_paise'] = Variable<int>(principalPaise);
+    map['rate_milli_pct'] = Variable<int>(rateMilliPct);
+    map['start_date'] = Variable<String>(startDate);
+    map['maturity_date'] = Variable<String>(maturityDate);
+    map['interest_type'] = Variable<String>(interestType);
+    if (!nullToAbsent || payoutFrequency != null) {
+      map['payout_frequency'] = Variable<String>(payoutFrequency);
+    }
+    map['compounding'] = Variable<String>(compounding);
+    if (!nullToAbsent || receiptMaturityPaise != null) {
+      map['receipt_maturity_paise'] = Variable<int>(receiptMaturityPaise);
+    }
+    if (!nullToAbsent || payoutAmountPaise != null) {
+      map['payout_amount_paise'] = Variable<int>(payoutAmountPaise);
+    }
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || closedOn != null) {
+      map['closed_on'] = Variable<String>(closedOn);
+    }
+    if (!nullToAbsent || amountReceivedPaise != null) {
+      map['amount_received_paise'] = Variable<int>(amountReceivedPaise);
+    }
+    if (!nullToAbsent || renewedIntoId != null) {
+      map['renewed_into_id'] = Variable<int>(renewedIntoId);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  FixedDepositsCompanion toCompanion(bool nullToAbsent) {
+    return FixedDepositsCompanion(
+      id: Value(id),
+      institution: Value(institution),
+      nickname: nickname == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nickname),
+      principalPaise: Value(principalPaise),
+      rateMilliPct: Value(rateMilliPct),
+      startDate: Value(startDate),
+      maturityDate: Value(maturityDate),
+      interestType: Value(interestType),
+      payoutFrequency: payoutFrequency == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payoutFrequency),
+      compounding: Value(compounding),
+      receiptMaturityPaise: receiptMaturityPaise == null && nullToAbsent
+          ? const Value.absent()
+          : Value(receiptMaturityPaise),
+      payoutAmountPaise: payoutAmountPaise == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payoutAmountPaise),
+      status: Value(status),
+      closedOn: closedOn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(closedOn),
+      amountReceivedPaise: amountReceivedPaise == null && nullToAbsent
+          ? const Value.absent()
+          : Value(amountReceivedPaise),
+      renewedIntoId: renewedIntoId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(renewedIntoId),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory FixedDepositData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FixedDepositData(
+      id: serializer.fromJson<int>(json['id']),
+      institution: serializer.fromJson<String>(json['institution']),
+      nickname: serializer.fromJson<String?>(json['nickname']),
+      principalPaise: serializer.fromJson<int>(json['principalPaise']),
+      rateMilliPct: serializer.fromJson<int>(json['rateMilliPct']),
+      startDate: serializer.fromJson<String>(json['startDate']),
+      maturityDate: serializer.fromJson<String>(json['maturityDate']),
+      interestType: serializer.fromJson<String>(json['interestType']),
+      payoutFrequency: serializer.fromJson<String?>(json['payoutFrequency']),
+      compounding: serializer.fromJson<String>(json['compounding']),
+      receiptMaturityPaise: serializer.fromJson<int?>(
+        json['receiptMaturityPaise'],
+      ),
+      payoutAmountPaise: serializer.fromJson<int?>(json['payoutAmountPaise']),
+      status: serializer.fromJson<String>(json['status']),
+      closedOn: serializer.fromJson<String?>(json['closedOn']),
+      amountReceivedPaise: serializer.fromJson<int?>(
+        json['amountReceivedPaise'],
+      ),
+      renewedIntoId: serializer.fromJson<int?>(json['renewedIntoId']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'institution': serializer.toJson<String>(institution),
+      'nickname': serializer.toJson<String?>(nickname),
+      'principalPaise': serializer.toJson<int>(principalPaise),
+      'rateMilliPct': serializer.toJson<int>(rateMilliPct),
+      'startDate': serializer.toJson<String>(startDate),
+      'maturityDate': serializer.toJson<String>(maturityDate),
+      'interestType': serializer.toJson<String>(interestType),
+      'payoutFrequency': serializer.toJson<String?>(payoutFrequency),
+      'compounding': serializer.toJson<String>(compounding),
+      'receiptMaturityPaise': serializer.toJson<int?>(receiptMaturityPaise),
+      'payoutAmountPaise': serializer.toJson<int?>(payoutAmountPaise),
+      'status': serializer.toJson<String>(status),
+      'closedOn': serializer.toJson<String?>(closedOn),
+      'amountReceivedPaise': serializer.toJson<int?>(amountReceivedPaise),
+      'renewedIntoId': serializer.toJson<int?>(renewedIntoId),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  FixedDepositData copyWith({
+    int? id,
+    String? institution,
+    Value<String?> nickname = const Value.absent(),
+    int? principalPaise,
+    int? rateMilliPct,
+    String? startDate,
+    String? maturityDate,
+    String? interestType,
+    Value<String?> payoutFrequency = const Value.absent(),
+    String? compounding,
+    Value<int?> receiptMaturityPaise = const Value.absent(),
+    Value<int?> payoutAmountPaise = const Value.absent(),
+    String? status,
+    Value<String?> closedOn = const Value.absent(),
+    Value<int?> amountReceivedPaise = const Value.absent(),
+    Value<int?> renewedIntoId = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+    DateTime? createdAt,
+  }) => FixedDepositData(
+    id: id ?? this.id,
+    institution: institution ?? this.institution,
+    nickname: nickname.present ? nickname.value : this.nickname,
+    principalPaise: principalPaise ?? this.principalPaise,
+    rateMilliPct: rateMilliPct ?? this.rateMilliPct,
+    startDate: startDate ?? this.startDate,
+    maturityDate: maturityDate ?? this.maturityDate,
+    interestType: interestType ?? this.interestType,
+    payoutFrequency: payoutFrequency.present
+        ? payoutFrequency.value
+        : this.payoutFrequency,
+    compounding: compounding ?? this.compounding,
+    receiptMaturityPaise: receiptMaturityPaise.present
+        ? receiptMaturityPaise.value
+        : this.receiptMaturityPaise,
+    payoutAmountPaise: payoutAmountPaise.present
+        ? payoutAmountPaise.value
+        : this.payoutAmountPaise,
+    status: status ?? this.status,
+    closedOn: closedOn.present ? closedOn.value : this.closedOn,
+    amountReceivedPaise: amountReceivedPaise.present
+        ? amountReceivedPaise.value
+        : this.amountReceivedPaise,
+    renewedIntoId: renewedIntoId.present
+        ? renewedIntoId.value
+        : this.renewedIntoId,
+    notes: notes.present ? notes.value : this.notes,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  FixedDepositData copyWithCompanion(FixedDepositsCompanion data) {
+    return FixedDepositData(
+      id: data.id.present ? data.id.value : this.id,
+      institution: data.institution.present
+          ? data.institution.value
+          : this.institution,
+      nickname: data.nickname.present ? data.nickname.value : this.nickname,
+      principalPaise: data.principalPaise.present
+          ? data.principalPaise.value
+          : this.principalPaise,
+      rateMilliPct: data.rateMilliPct.present
+          ? data.rateMilliPct.value
+          : this.rateMilliPct,
+      startDate: data.startDate.present ? data.startDate.value : this.startDate,
+      maturityDate: data.maturityDate.present
+          ? data.maturityDate.value
+          : this.maturityDate,
+      interestType: data.interestType.present
+          ? data.interestType.value
+          : this.interestType,
+      payoutFrequency: data.payoutFrequency.present
+          ? data.payoutFrequency.value
+          : this.payoutFrequency,
+      compounding: data.compounding.present
+          ? data.compounding.value
+          : this.compounding,
+      receiptMaturityPaise: data.receiptMaturityPaise.present
+          ? data.receiptMaturityPaise.value
+          : this.receiptMaturityPaise,
+      payoutAmountPaise: data.payoutAmountPaise.present
+          ? data.payoutAmountPaise.value
+          : this.payoutAmountPaise,
+      status: data.status.present ? data.status.value : this.status,
+      closedOn: data.closedOn.present ? data.closedOn.value : this.closedOn,
+      amountReceivedPaise: data.amountReceivedPaise.present
+          ? data.amountReceivedPaise.value
+          : this.amountReceivedPaise,
+      renewedIntoId: data.renewedIntoId.present
+          ? data.renewedIntoId.value
+          : this.renewedIntoId,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FixedDepositData(')
+          ..write('id: $id, ')
+          ..write('institution: $institution, ')
+          ..write('nickname: $nickname, ')
+          ..write('principalPaise: $principalPaise, ')
+          ..write('rateMilliPct: $rateMilliPct, ')
+          ..write('startDate: $startDate, ')
+          ..write('maturityDate: $maturityDate, ')
+          ..write('interestType: $interestType, ')
+          ..write('payoutFrequency: $payoutFrequency, ')
+          ..write('compounding: $compounding, ')
+          ..write('receiptMaturityPaise: $receiptMaturityPaise, ')
+          ..write('payoutAmountPaise: $payoutAmountPaise, ')
+          ..write('status: $status, ')
+          ..write('closedOn: $closedOn, ')
+          ..write('amountReceivedPaise: $amountReceivedPaise, ')
+          ..write('renewedIntoId: $renewedIntoId, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    institution,
+    nickname,
+    principalPaise,
+    rateMilliPct,
+    startDate,
+    maturityDate,
+    interestType,
+    payoutFrequency,
+    compounding,
+    receiptMaturityPaise,
+    payoutAmountPaise,
+    status,
+    closedOn,
+    amountReceivedPaise,
+    renewedIntoId,
+    notes,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FixedDepositData &&
+          other.id == this.id &&
+          other.institution == this.institution &&
+          other.nickname == this.nickname &&
+          other.principalPaise == this.principalPaise &&
+          other.rateMilliPct == this.rateMilliPct &&
+          other.startDate == this.startDate &&
+          other.maturityDate == this.maturityDate &&
+          other.interestType == this.interestType &&
+          other.payoutFrequency == this.payoutFrequency &&
+          other.compounding == this.compounding &&
+          other.receiptMaturityPaise == this.receiptMaturityPaise &&
+          other.payoutAmountPaise == this.payoutAmountPaise &&
+          other.status == this.status &&
+          other.closedOn == this.closedOn &&
+          other.amountReceivedPaise == this.amountReceivedPaise &&
+          other.renewedIntoId == this.renewedIntoId &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt);
+}
+
+class FixedDepositsCompanion extends UpdateCompanion<FixedDepositData> {
+  final Value<int> id;
+  final Value<String> institution;
+  final Value<String?> nickname;
+  final Value<int> principalPaise;
+  final Value<int> rateMilliPct;
+  final Value<String> startDate;
+  final Value<String> maturityDate;
+  final Value<String> interestType;
+  final Value<String?> payoutFrequency;
+  final Value<String> compounding;
+  final Value<int?> receiptMaturityPaise;
+  final Value<int?> payoutAmountPaise;
+  final Value<String> status;
+  final Value<String?> closedOn;
+  final Value<int?> amountReceivedPaise;
+  final Value<int?> renewedIntoId;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  const FixedDepositsCompanion({
+    this.id = const Value.absent(),
+    this.institution = const Value.absent(),
+    this.nickname = const Value.absent(),
+    this.principalPaise = const Value.absent(),
+    this.rateMilliPct = const Value.absent(),
+    this.startDate = const Value.absent(),
+    this.maturityDate = const Value.absent(),
+    this.interestType = const Value.absent(),
+    this.payoutFrequency = const Value.absent(),
+    this.compounding = const Value.absent(),
+    this.receiptMaturityPaise = const Value.absent(),
+    this.payoutAmountPaise = const Value.absent(),
+    this.status = const Value.absent(),
+    this.closedOn = const Value.absent(),
+    this.amountReceivedPaise = const Value.absent(),
+    this.renewedIntoId = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  FixedDepositsCompanion.insert({
+    this.id = const Value.absent(),
+    required String institution,
+    this.nickname = const Value.absent(),
+    required int principalPaise,
+    required int rateMilliPct,
+    required String startDate,
+    required String maturityDate,
+    required String interestType,
+    this.payoutFrequency = const Value.absent(),
+    required String compounding,
+    this.receiptMaturityPaise = const Value.absent(),
+    this.payoutAmountPaise = const Value.absent(),
+    this.status = const Value.absent(),
+    this.closedOn = const Value.absent(),
+    this.amountReceivedPaise = const Value.absent(),
+    this.renewedIntoId = const Value.absent(),
+    this.notes = const Value.absent(),
+    required DateTime createdAt,
+  }) : institution = Value(institution),
+       principalPaise = Value(principalPaise),
+       rateMilliPct = Value(rateMilliPct),
+       startDate = Value(startDate),
+       maturityDate = Value(maturityDate),
+       interestType = Value(interestType),
+       compounding = Value(compounding),
+       createdAt = Value(createdAt);
+  static Insertable<FixedDepositData> custom({
+    Expression<int>? id,
+    Expression<String>? institution,
+    Expression<String>? nickname,
+    Expression<int>? principalPaise,
+    Expression<int>? rateMilliPct,
+    Expression<String>? startDate,
+    Expression<String>? maturityDate,
+    Expression<String>? interestType,
+    Expression<String>? payoutFrequency,
+    Expression<String>? compounding,
+    Expression<int>? receiptMaturityPaise,
+    Expression<int>? payoutAmountPaise,
+    Expression<String>? status,
+    Expression<String>? closedOn,
+    Expression<int>? amountReceivedPaise,
+    Expression<int>? renewedIntoId,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (institution != null) 'institution': institution,
+      if (nickname != null) 'nickname': nickname,
+      if (principalPaise != null) 'principal_paise': principalPaise,
+      if (rateMilliPct != null) 'rate_milli_pct': rateMilliPct,
+      if (startDate != null) 'start_date': startDate,
+      if (maturityDate != null) 'maturity_date': maturityDate,
+      if (interestType != null) 'interest_type': interestType,
+      if (payoutFrequency != null) 'payout_frequency': payoutFrequency,
+      if (compounding != null) 'compounding': compounding,
+      if (receiptMaturityPaise != null)
+        'receipt_maturity_paise': receiptMaturityPaise,
+      if (payoutAmountPaise != null) 'payout_amount_paise': payoutAmountPaise,
+      if (status != null) 'status': status,
+      if (closedOn != null) 'closed_on': closedOn,
+      if (amountReceivedPaise != null)
+        'amount_received_paise': amountReceivedPaise,
+      if (renewedIntoId != null) 'renewed_into_id': renewedIntoId,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  FixedDepositsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? institution,
+    Value<String?>? nickname,
+    Value<int>? principalPaise,
+    Value<int>? rateMilliPct,
+    Value<String>? startDate,
+    Value<String>? maturityDate,
+    Value<String>? interestType,
+    Value<String?>? payoutFrequency,
+    Value<String>? compounding,
+    Value<int?>? receiptMaturityPaise,
+    Value<int?>? payoutAmountPaise,
+    Value<String>? status,
+    Value<String?>? closedOn,
+    Value<int?>? amountReceivedPaise,
+    Value<int?>? renewedIntoId,
+    Value<String?>? notes,
+    Value<DateTime>? createdAt,
+  }) {
+    return FixedDepositsCompanion(
+      id: id ?? this.id,
+      institution: institution ?? this.institution,
+      nickname: nickname ?? this.nickname,
+      principalPaise: principalPaise ?? this.principalPaise,
+      rateMilliPct: rateMilliPct ?? this.rateMilliPct,
+      startDate: startDate ?? this.startDate,
+      maturityDate: maturityDate ?? this.maturityDate,
+      interestType: interestType ?? this.interestType,
+      payoutFrequency: payoutFrequency ?? this.payoutFrequency,
+      compounding: compounding ?? this.compounding,
+      receiptMaturityPaise: receiptMaturityPaise ?? this.receiptMaturityPaise,
+      payoutAmountPaise: payoutAmountPaise ?? this.payoutAmountPaise,
+      status: status ?? this.status,
+      closedOn: closedOn ?? this.closedOn,
+      amountReceivedPaise: amountReceivedPaise ?? this.amountReceivedPaise,
+      renewedIntoId: renewedIntoId ?? this.renewedIntoId,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (institution.present) {
+      map['institution'] = Variable<String>(institution.value);
+    }
+    if (nickname.present) {
+      map['nickname'] = Variable<String>(nickname.value);
+    }
+    if (principalPaise.present) {
+      map['principal_paise'] = Variable<int>(principalPaise.value);
+    }
+    if (rateMilliPct.present) {
+      map['rate_milli_pct'] = Variable<int>(rateMilliPct.value);
+    }
+    if (startDate.present) {
+      map['start_date'] = Variable<String>(startDate.value);
+    }
+    if (maturityDate.present) {
+      map['maturity_date'] = Variable<String>(maturityDate.value);
+    }
+    if (interestType.present) {
+      map['interest_type'] = Variable<String>(interestType.value);
+    }
+    if (payoutFrequency.present) {
+      map['payout_frequency'] = Variable<String>(payoutFrequency.value);
+    }
+    if (compounding.present) {
+      map['compounding'] = Variable<String>(compounding.value);
+    }
+    if (receiptMaturityPaise.present) {
+      map['receipt_maturity_paise'] = Variable<int>(receiptMaturityPaise.value);
+    }
+    if (payoutAmountPaise.present) {
+      map['payout_amount_paise'] = Variable<int>(payoutAmountPaise.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (closedOn.present) {
+      map['closed_on'] = Variable<String>(closedOn.value);
+    }
+    if (amountReceivedPaise.present) {
+      map['amount_received_paise'] = Variable<int>(amountReceivedPaise.value);
+    }
+    if (renewedIntoId.present) {
+      map['renewed_into_id'] = Variable<int>(renewedIntoId.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FixedDepositsCompanion(')
+          ..write('id: $id, ')
+          ..write('institution: $institution, ')
+          ..write('nickname: $nickname, ')
+          ..write('principalPaise: $principalPaise, ')
+          ..write('rateMilliPct: $rateMilliPct, ')
+          ..write('startDate: $startDate, ')
+          ..write('maturityDate: $maturityDate, ')
+          ..write('interestType: $interestType, ')
+          ..write('payoutFrequency: $payoutFrequency, ')
+          ..write('compounding: $compounding, ')
+          ..write('receiptMaturityPaise: $receiptMaturityPaise, ')
+          ..write('payoutAmountPaise: $payoutAmountPaise, ')
+          ..write('status: $status, ')
+          ..write('closedOn: $closedOn, ')
+          ..write('amountReceivedPaise: $amountReceivedPaise, ')
+          ..write('renewedIntoId: $renewedIntoId, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2018,6 +3140,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PriceQuotesTable priceQuotes = $PriceQuotesTable(this);
   late final $SymbolMasterTable symbolMaster = $SymbolMasterTable(this);
   late final $AppSettingsTable appSettings = $AppSettingsTable(this);
+  late final $FixedDepositsTable fixedDeposits = $FixedDepositsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2028,6 +3151,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     priceQuotes,
     symbolMaster,
     appSettings,
+    fixedDeposits,
   ];
 }
 
@@ -2464,6 +3588,7 @@ typedef $$InvestmentTransactionsTableCreateCompanionBuilder =
       required int pricePaise,
       Value<int> feesPaise,
       Value<String?> date,
+      Value<String?> notes,
       required DateTime createdAt,
     });
 typedef $$InvestmentTransactionsTableUpdateCompanionBuilder =
@@ -2475,6 +3600,7 @@ typedef $$InvestmentTransactionsTableUpdateCompanionBuilder =
       Value<int> pricePaise,
       Value<int> feesPaise,
       Value<String?> date,
+      Value<String?> notes,
       Value<DateTime> createdAt,
     });
 
@@ -2549,6 +3675,11 @@ class $$InvestmentTransactionsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnFilters(column),
@@ -2617,6 +3748,11 @@ class $$InvestmentTransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -2676,6 +3812,9 @@ class $$InvestmentTransactionsTableAnnotationComposer
 
   GeneratedColumn<String> get date =>
       $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -2750,6 +3889,7 @@ class $$InvestmentTransactionsTableTableManager
                 Value<int> pricePaise = const Value.absent(),
                 Value<int> feesPaise = const Value.absent(),
                 Value<String?> date = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => InvestmentTransactionsCompanion(
                 id: id,
@@ -2759,6 +3899,7 @@ class $$InvestmentTransactionsTableTableManager
                 pricePaise: pricePaise,
                 feesPaise: feesPaise,
                 date: date,
+                notes: notes,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -2770,6 +3911,7 @@ class $$InvestmentTransactionsTableTableManager
                 required int pricePaise,
                 Value<int> feesPaise = const Value.absent(),
                 Value<String?> date = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
                 required DateTime createdAt,
               }) => InvestmentTransactionsCompanion.insert(
                 id: id,
@@ -2779,6 +3921,7 @@ class $$InvestmentTransactionsTableTableManager
                 pricePaise: pricePaise,
                 feesPaise: feesPaise,
                 date: date,
+                notes: notes,
                 createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0
@@ -3583,6 +4726,482 @@ typedef $$AppSettingsTableProcessedTableManager =
       AppSettingData,
       PrefetchHooks Function()
     >;
+typedef $$FixedDepositsTableCreateCompanionBuilder =
+    FixedDepositsCompanion Function({
+      Value<int> id,
+      required String institution,
+      Value<String?> nickname,
+      required int principalPaise,
+      required int rateMilliPct,
+      required String startDate,
+      required String maturityDate,
+      required String interestType,
+      Value<String?> payoutFrequency,
+      required String compounding,
+      Value<int?> receiptMaturityPaise,
+      Value<int?> payoutAmountPaise,
+      Value<String> status,
+      Value<String?> closedOn,
+      Value<int?> amountReceivedPaise,
+      Value<int?> renewedIntoId,
+      Value<String?> notes,
+      required DateTime createdAt,
+    });
+typedef $$FixedDepositsTableUpdateCompanionBuilder =
+    FixedDepositsCompanion Function({
+      Value<int> id,
+      Value<String> institution,
+      Value<String?> nickname,
+      Value<int> principalPaise,
+      Value<int> rateMilliPct,
+      Value<String> startDate,
+      Value<String> maturityDate,
+      Value<String> interestType,
+      Value<String?> payoutFrequency,
+      Value<String> compounding,
+      Value<int?> receiptMaturityPaise,
+      Value<int?> payoutAmountPaise,
+      Value<String> status,
+      Value<String?> closedOn,
+      Value<int?> amountReceivedPaise,
+      Value<int?> renewedIntoId,
+      Value<String?> notes,
+      Value<DateTime> createdAt,
+    });
+
+class $$FixedDepositsTableFilterComposer
+    extends Composer<_$AppDatabase, $FixedDepositsTable> {
+  $$FixedDepositsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get institution => $composableBuilder(
+    column: $table.institution,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nickname => $composableBuilder(
+    column: $table.nickname,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get principalPaise => $composableBuilder(
+    column: $table.principalPaise,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rateMilliPct => $composableBuilder(
+    column: $table.rateMilliPct,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get maturityDate => $composableBuilder(
+    column: $table.maturityDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get interestType => $composableBuilder(
+    column: $table.interestType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payoutFrequency => $composableBuilder(
+    column: $table.payoutFrequency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get compounding => $composableBuilder(
+    column: $table.compounding,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get receiptMaturityPaise => $composableBuilder(
+    column: $table.receiptMaturityPaise,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get payoutAmountPaise => $composableBuilder(
+    column: $table.payoutAmountPaise,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get closedOn => $composableBuilder(
+    column: $table.closedOn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get amountReceivedPaise => $composableBuilder(
+    column: $table.amountReceivedPaise,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get renewedIntoId => $composableBuilder(
+    column: $table.renewedIntoId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FixedDepositsTableOrderingComposer
+    extends Composer<_$AppDatabase, $FixedDepositsTable> {
+  $$FixedDepositsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get institution => $composableBuilder(
+    column: $table.institution,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nickname => $composableBuilder(
+    column: $table.nickname,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get principalPaise => $composableBuilder(
+    column: $table.principalPaise,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rateMilliPct => $composableBuilder(
+    column: $table.rateMilliPct,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get maturityDate => $composableBuilder(
+    column: $table.maturityDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get interestType => $composableBuilder(
+    column: $table.interestType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payoutFrequency => $composableBuilder(
+    column: $table.payoutFrequency,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get compounding => $composableBuilder(
+    column: $table.compounding,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get receiptMaturityPaise => $composableBuilder(
+    column: $table.receiptMaturityPaise,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get payoutAmountPaise => $composableBuilder(
+    column: $table.payoutAmountPaise,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get closedOn => $composableBuilder(
+    column: $table.closedOn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get amountReceivedPaise => $composableBuilder(
+    column: $table.amountReceivedPaise,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get renewedIntoId => $composableBuilder(
+    column: $table.renewedIntoId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FixedDepositsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FixedDepositsTable> {
+  $$FixedDepositsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get institution => $composableBuilder(
+    column: $table.institution,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get nickname =>
+      $composableBuilder(column: $table.nickname, builder: (column) => column);
+
+  GeneratedColumn<int> get principalPaise => $composableBuilder(
+    column: $table.principalPaise,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get rateMilliPct => $composableBuilder(
+    column: $table.rateMilliPct,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get startDate =>
+      $composableBuilder(column: $table.startDate, builder: (column) => column);
+
+  GeneratedColumn<String> get maturityDate => $composableBuilder(
+    column: $table.maturityDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get interestType => $composableBuilder(
+    column: $table.interestType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payoutFrequency => $composableBuilder(
+    column: $table.payoutFrequency,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get compounding => $composableBuilder(
+    column: $table.compounding,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get receiptMaturityPaise => $composableBuilder(
+    column: $table.receiptMaturityPaise,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get payoutAmountPaise => $composableBuilder(
+    column: $table.payoutAmountPaise,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get closedOn =>
+      $composableBuilder(column: $table.closedOn, builder: (column) => column);
+
+  GeneratedColumn<int> get amountReceivedPaise => $composableBuilder(
+    column: $table.amountReceivedPaise,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get renewedIntoId => $composableBuilder(
+    column: $table.renewedIntoId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$FixedDepositsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FixedDepositsTable,
+          FixedDepositData,
+          $$FixedDepositsTableFilterComposer,
+          $$FixedDepositsTableOrderingComposer,
+          $$FixedDepositsTableAnnotationComposer,
+          $$FixedDepositsTableCreateCompanionBuilder,
+          $$FixedDepositsTableUpdateCompanionBuilder,
+          (
+            FixedDepositData,
+            BaseReferences<
+              _$AppDatabase,
+              $FixedDepositsTable,
+              FixedDepositData
+            >,
+          ),
+          FixedDepositData,
+          PrefetchHooks Function()
+        > {
+  $$FixedDepositsTableTableManager(_$AppDatabase db, $FixedDepositsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FixedDepositsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FixedDepositsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FixedDepositsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> institution = const Value.absent(),
+                Value<String?> nickname = const Value.absent(),
+                Value<int> principalPaise = const Value.absent(),
+                Value<int> rateMilliPct = const Value.absent(),
+                Value<String> startDate = const Value.absent(),
+                Value<String> maturityDate = const Value.absent(),
+                Value<String> interestType = const Value.absent(),
+                Value<String?> payoutFrequency = const Value.absent(),
+                Value<String> compounding = const Value.absent(),
+                Value<int?> receiptMaturityPaise = const Value.absent(),
+                Value<int?> payoutAmountPaise = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> closedOn = const Value.absent(),
+                Value<int?> amountReceivedPaise = const Value.absent(),
+                Value<int?> renewedIntoId = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => FixedDepositsCompanion(
+                id: id,
+                institution: institution,
+                nickname: nickname,
+                principalPaise: principalPaise,
+                rateMilliPct: rateMilliPct,
+                startDate: startDate,
+                maturityDate: maturityDate,
+                interestType: interestType,
+                payoutFrequency: payoutFrequency,
+                compounding: compounding,
+                receiptMaturityPaise: receiptMaturityPaise,
+                payoutAmountPaise: payoutAmountPaise,
+                status: status,
+                closedOn: closedOn,
+                amountReceivedPaise: amountReceivedPaise,
+                renewedIntoId: renewedIntoId,
+                notes: notes,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String institution,
+                Value<String?> nickname = const Value.absent(),
+                required int principalPaise,
+                required int rateMilliPct,
+                required String startDate,
+                required String maturityDate,
+                required String interestType,
+                Value<String?> payoutFrequency = const Value.absent(),
+                required String compounding,
+                Value<int?> receiptMaturityPaise = const Value.absent(),
+                Value<int?> payoutAmountPaise = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> closedOn = const Value.absent(),
+                Value<int?> amountReceivedPaise = const Value.absent(),
+                Value<int?> renewedIntoId = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                required DateTime createdAt,
+              }) => FixedDepositsCompanion.insert(
+                id: id,
+                institution: institution,
+                nickname: nickname,
+                principalPaise: principalPaise,
+                rateMilliPct: rateMilliPct,
+                startDate: startDate,
+                maturityDate: maturityDate,
+                interestType: interestType,
+                payoutFrequency: payoutFrequency,
+                compounding: compounding,
+                receiptMaturityPaise: receiptMaturityPaise,
+                payoutAmountPaise: payoutAmountPaise,
+                status: status,
+                closedOn: closedOn,
+                amountReceivedPaise: amountReceivedPaise,
+                renewedIntoId: renewedIntoId,
+                notes: notes,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$FixedDepositsTable, FixedDepositData>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $FixedDepositsTable,
+                    FixedDepositData
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FixedDepositsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FixedDepositsTable,
+      FixedDepositData,
+      $$FixedDepositsTableFilterComposer,
+      $$FixedDepositsTableOrderingComposer,
+      $$FixedDepositsTableAnnotationComposer,
+      $$FixedDepositsTableCreateCompanionBuilder,
+      $$FixedDepositsTableUpdateCompanionBuilder,
+      (
+        FixedDepositData,
+        BaseReferences<_$AppDatabase, $FixedDepositsTable, FixedDepositData>,
+      ),
+      FixedDepositData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3600,4 +5219,6 @@ class $AppDatabaseManager {
       $$SymbolMasterTableTableManager(_db, _db.symbolMaster);
   $$AppSettingsTableTableManager get appSettings =>
       $$AppSettingsTableTableManager(_db, _db.appSettings);
+  $$FixedDepositsTableTableManager get fixedDeposits =>
+      $$FixedDepositsTableTableManager(_db, _db.fixedDeposits);
 }

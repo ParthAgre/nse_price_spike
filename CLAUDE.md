@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-`nse_price_spike` is a standalone Android-only Flutter spike. It validates tracking stock and ETF holdings with end-of-day prices from NSE's free daily bhavcopy, before integrating into Brokd (`E:\Projects\Fyntrest\brokd`). It mirrors Brokd's conventions so modules can be copied across; see "Porting to Brokd" in `README.md`.
+`nse_price_spike` is a standalone Android-only Flutter spike. It validates tracking stock and ETF holdings with end-of-day prices from NSE's free daily bhavcopy, plus fixed deposits valued with interest maths, on one Investments screen, before integrating into Brokd (`E:\Projects\Fyntrest\brokd`). It mirrors Brokd's conventions so modules can be copied across; see "Porting to Brokd" in `README.md`.
 
 - **Stack:**
   - Flutter 3.44 / Dart 3.12 (`sdk: ^3.12.2`)
@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Drift (+ drift_dev, build_runner), path_provider, http, archive, csv 8.x
   - Plain Material UI
 - **Allowed dependencies:** only the ones above. **Ask before adding any other dependency.** `sqlite3_flutter_libs` was removed on purpose: sqlite3 3.x bundles SQLite through build hooks, and 0.6.0+eol is an empty stub.
-- **Status:** `STATUS.md` holds the current status, check results and next steps. `docs/USER_SOP.md` is the user guide.
+- **Status:** `STATUS.md` holds the current status, check results and next steps. `docs/USER_SOP.md` is a developer note pointing to the shared user SOP; list user-visible changes for it in each report.
 - **Never** touch other projects, or commit or push without explicit approval.
 
 ## Commands (verified on this machine)
@@ -41,13 +41,14 @@ cd android && JAVA_HOME="/e/Softwares/Android Studio/jbr" ./gradlew --stop   # f
 
 - **Widgets never import `lib/database/` or drift.** Reads go through `StreamProvider`s; writes go through `ref.read(xRepositoryProvider)` or `refreshControllerProvider.notifier`.
 - **Holdings are derived, never stored.** `HoldingsRepository.watchHoldings()` re-reads transactions and quotes on every change, via `tableUpdates`.
+- **Fixed deposits are stored** (`fixed_deposits`); their value, interest and status are derived on read for `todayProvider`'s IST date (invalidated on resume).
 - **Pure logic lives in `lib/utils/` and `lib/models/`**, all unit-tested:
-  - `portfolio_math.dart`
-  - `money.dart`
-  - `trading_day.dart`
-  - `symbol_search.dart`
-  - `holding_validation.dart`
+  - `portfolio_math.dart`, `money.dart`, `trading_day.dart`, `symbol_search.dart`
+  - `fd_math.dart`, `deriveFdStatus` in `fixed_deposit.dart`
+  - `investments_summary.dart` (stocks + ETFs + FDs in one function), `holding_sort.dart`
+  - `holding_validation.dart`, `fd_validation.dart`
   - `selectEffectivePrice` in `price_quote.dart`
+- **UI is restylable:** every user-facing string (except the Debug screen) is in `lib/constants/strings.dart`; screens compose widgets from `lib/widgets/` that take plain state and callbacks; colours come from the theme (`GainLossColors` in `lib/theme/app_theme.dart`), never hard-coded. Charts use `CustomPaint`, no package.
 - **`RefreshService`** (`lib/services/refresh_service.dart`) owns every refresh rule. It never throws; failures become `RefreshOutcome`s. `RefreshController` builds it per run for the current mode.
 - **Settings** (mode, download bookkeeping, file stats) are in the Drift `app_settings` key/value table (`SettingKeys`). This is because shared_preferences is not an allowed dependency.
 - **`FileCache`** keeps the latest bhavcopy zip, so an instrument that isn't held yet can show its close. When a holding is added, it is back-filled from this cache.
@@ -67,6 +68,14 @@ cd android && JAVA_HOME="/e/Softwares/Android Studio/jbr" ./gradlew --stop   # f
 - **One URL constant:** `bhavcopyUrlPattern` in `lib/constants/nse_urls.dart`. Send the browser User-Agent.
 - **Money and quantity:** integer paise, and quantity × 10,000. Convert decimal strings to paise by string parsing (`parseDecimalToPaise`), never through `double`. Round only for display.
 - **Avg cost excludes fees; invested includes them.**
+- **Display:** every rupee goes through `formatRupees` (Indian grouping) or `formatRupeesWhole` (large summary figures); negatives use "−" (U+2212); percentages have 2 decimals and an explicit sign. Gain/loss is never shown by colour alone.
+- **Summary:** "Today" comes from stocks and ETFs only. Closed FDs are excluded from every total. Returns = value − invested for stocks/ETFs; interest so far for FDs (for payout FDs, payouts received, which are not in the value).
+- **FD maths** (`fd_math.dart`; assumptions in `STATUS.md`):
+  - Day count actual/365. Maturity before start + 6 calendar months → simple interest; otherwise compound P × (1 + r/n)^(n × days/365).
+  - Doubles only inside the formulas; round once to paise (half-up). Rates are stored as thousandths of a percent (7.125% = 7125).
+  - Store the maturity date only; tenure is an input method (month-end clamped).
+  - Value: principal before start; maturity amount from maturity on; between, the receipt curve P × (M/P)^(elapsed/total) if a receipt amount exists, else the formula. Payout FDs: value = principal; interest = completed month-step periods × payout.
+  - Status: Upcoming / Active / Maturing soon (≤ 30 days) / Matured / Closed (stored closure). Renewing closes the old FD only when the new one is saved.
 - **Refresh:**
   - Expected day = today if it is a weekday and ≥ **17:00 IST**, else the previous weekday.
   - **A 404 for today's file means "not published yet":**
@@ -92,6 +101,8 @@ cd android && JAVA_HOME="/e/Softwares/Android Studio/jbr" ./gradlew --stop   # f
   - Groups: exact symbol (or exact ISIN), then symbol prefix, then name contains. A match inside a symbol alone is not a match.
   - Within a group: traded value (`TtlTrfVal`) from the latest cached bhavcopy, descending; instruments without one go last, then A–Z.
   - `symbolSearchIndexProvider` (in `refresh_providers.dart`) rebuilds when `latestFileProvider` is invalidated.
-- **Schema is v2.** It added `symbol_master.origin`. Write a migration step in `AppDatabase.migration` for every schema change, and test it the way `test/repositories/migration_test.dart` does.
+- **Schema is v3.** v2 added `symbol_master.origin`; v3 added `fixed_deposits` and `investment_transactions.notes`. Write a migration step in `AppDatabase.migration` for every schema change, and test it from the previous version's exact SQL, as `test/repositories/migration_v3_test.dart` does. A fake old database must include every table a later step alters.
+- **Widget-test layout:** tests render text in the Ahem font (every glyph a full square), so text is far wider than on a device; don't judge fit from test measurements — check on the emulator at 360 dp and text scale 1.3. `ListView` rows below the viewport aren't built: list-order tests pass `logicalHeight` to `pumpApp` (`test/helpers/app.dart`), and taps use `scrollAndTap`, which also calls `ensureVisible`.
+- **Date pickers in widget tests:** `typeDateInPicker` switches to input mode and types `MM/DD/YYYY` (en_US).
 - **Zip entry times have no time zone.** They are read as IST.
 - **Shell heredocs:** heredocs that contain apostrophes can fail in the Bash tool. Write the file with the Write tool instead.

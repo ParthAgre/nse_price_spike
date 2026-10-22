@@ -6,7 +6,9 @@ The step-by-step user guide for this app is the shared SOP, maintained outside t
 
 Keep that SOP in line with the code. Update it when a change affects any of these:
 
-- **Screens and buttons:** Portfolio, Search, Add/Edit holding, Holding detail, Debug.
+- **Screens and buttons:** Investments (summary card, allocation bar, filter chips, Total/Today toggle, sort menu, matured-FD prompt, Closed section, "+ Add" sheet), Search, Stock/ETF form and detail, FD form and detail, Debug.
+- **Wording:** all screen copy is in `lib/constants/strings.dart`.
+- **FD maths and lifecycle** (`lib/utils/fd_math.dart`, `lib/models/fixed_deposit.dart`): actual/365, simple interest under 6 months, compound otherwise, receipt-calibrated values, payout periods, statuses, Withdrawn / Renewed / Close early.
 - **Refresh rules** (`lib/services/refresh_service.dart`, `lib/utils/trading_day.dart`):
   - Expected day = today from **17:00 IST** on weekdays.
   - A 404 for today's file means "not published yet": prices are kept, it doesn't count as the day's download, and open/resume re-checks at most every 30 minutes.

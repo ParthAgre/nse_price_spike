@@ -22,6 +22,7 @@ class HoldingsRepository {
     pricePaise: r.pricePaise,
     feesPaise: r.feesPaise,
     date: parseDateKey(r.date),
+    notes: r.notes,
     createdAt: r.createdAt,
   );
 
@@ -103,6 +104,7 @@ class HoldingsRepository {
     required int pricePaise,
     required int feesPaise,
     required DateTime? date,
+    String? notes,
     required DateTime now,
   }) => _db
       .into(_db.investmentTransactions)
@@ -114,6 +116,7 @@ class HoldingsRepository {
           pricePaise: pricePaise,
           feesPaise: Value(feesPaise),
           date: Value(date == null ? null : dateKey(date)),
+          notes: Value(notes),
           createdAt: now,
         ),
       );
@@ -124,6 +127,7 @@ class HoldingsRepository {
     required int pricePaise,
     required int feesPaise,
     required DateTime? date,
+    String? notes,
   }) =>
       (_db.update(
         _db.investmentTransactions,
@@ -134,6 +138,7 @@ class HoldingsRepository {
           pricePaise: Value(pricePaise),
           feesPaise: Value(feesPaise),
           date: Value(date == null ? null : dateKey(date)),
+          notes: Value(notes),
         ),
       );
 
